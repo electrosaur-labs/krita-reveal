@@ -1,0 +1,51 @@
+{
+  "id": "soft_light",
+  "version": "1.0.0",
+  "name": "Soft Light",
+  "group": "soft",
+  "engine": "direct",
+  "description": "Mid-bright, low contrast. Protects soft gradients in high-key photography.",
+  "centroid": {
+    "l": 65,
+    "c": 20,
+    "k": 40,
+    "l_std_dev": 18,
+    "hue_entropy": 0.5,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.2
+  },
+  "weights": {
+    "l": 1,
+    "c": 1.5,
+    "k": 1,
+    "l_std_dev": 2,
+    "hue_entropy": 1
+  },
+  "parameters": {
+    "minColors": 4,
+    "maxColors": 8,
+    "ditherType": "atkinson",
+    "distanceMetric": "cie94",
+    "lWeight": 1.2,
+    "cWeight": 1.2,
+    "blackBias": 3,
+    "vibrancyMode": "linear",
+    "vibrancyBoost": 1.1,
+    "highlightThreshold": 95,
+    "highlightBoost": 1.2,
+    "enablePaletteReduction": true,
+    "paletteReduction": 9,
+    "substrateMode": "auto",
+    "substrateTolerance": 2,
+    "shadowPoint": 10,
+    "enableHueGapAnalysis": true,
+    "hueLockAngle": 15,
+    "colorMode": "color",
+    "preserveWhite": true,
+    "preserveBlack": false,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 5,
+    "preprocessingIntensity": "light",
+    "refinementPasses": 1
+  }
+}

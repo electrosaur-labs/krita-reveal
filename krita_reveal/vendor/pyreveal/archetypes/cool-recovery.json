@@ -1,0 +1,65 @@
+{
+  "id": "cool_recovery",
+  "version": "1.0.0",
+  "name": "Cool Recovery",
+  "group": "specialist",
+  "engine": "direct",
+  "description": "Forces engine to find cool-spectrum outliers in warm or neutral images.",
+  "preferred_sectors": [
+    "blue",
+    "cyan",
+    "azure"
+  ],
+  "centroid": {
+    "l": 40,
+    "c": 35,
+    "k": 80,
+    "l_std_dev": 22,
+    "hue_entropy": 0.45,
+    "temperature_bias": -0.6,
+    "primary_sector_weight": 0.35
+  },
+  "weights": {
+    "l": 1,
+    "c": 2,
+    "k": 2,
+    "l_std_dev": 1.5,
+    "temperature_bias": 2.5
+  },
+  "parameters": {
+    "minColors": 4,
+    "maxColors": 10,
+    "ditherType": "atkinson",
+    "distanceMetric": "cie2000",
+    "lWeight": 1.5,
+    "cWeight": 5.5,
+    "blackBias": 6.5,
+    "vibrancyMode": "aggressive",
+    "vibrancyBoost": 1.8,
+    "highlightThreshold": 95,
+    "highlightBoost": 1.2,
+    "enablePaletteReduction": false,
+    "paletteReduction": 0,
+    "substrateMode": "auto",
+    "substrateTolerance": 3.5,
+    "shadowPoint": 10,
+    "enableHueGapAnalysis": true,
+    "hueLockAngle": 15,
+    "colorMode": "color",
+    "preserveWhite": true,
+    "preserveBlack": true,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 0,
+    "preprocessingIntensity": "light",
+    "shadowClamp": 6,
+    "speckleRescue": 4,
+    "medianPass": false,
+    "minVolume": 1,
+    "refinementPasses": 1
+  },
+  "scoring": {
+    "chromaProfile": "moderate",
+    "tonalRange": "dark",
+    "expects_outlier": true
+  }
+}

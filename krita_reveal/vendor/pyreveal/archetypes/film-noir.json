@@ -1,0 +1,51 @@
+{
+  "id": "film_noir",
+  "version": "1.0.0",
+  "name": "Film Noir",
+  "group": "dramatic",
+  "engine": "direct",
+  "description": "Dark, high contrast. Optimized for woodcuts and film noir aesthetics.",
+  "centroid": {
+    "l": 25,
+    "c": 10,
+    "k": 80,
+    "l_std_dev": 30,
+    "hue_entropy": 0.15,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.8
+  },
+  "weights": {
+    "l": 1,
+    "c": 1,
+    "k": 2.5,
+    "l_std_dev": 1,
+    "hue_entropy": 2
+  },
+  "parameters": {
+    "minColors": 4,
+    "maxColors": 8,
+    "ditherType": "none",
+    "distanceMetric": "cie94",
+    "lWeight": 1.5,
+    "cWeight": 1.2,
+    "blackBias": 8,
+    "substrateMode": "black",
+    "substrateTolerance": 1.5,
+    "vibrancyMode": "exponential",
+    "vibrancyBoost": 1.4,
+    "highlightThreshold": 80,
+    "highlightBoost": 3,
+    "enablePaletteReduction": true,
+    "paletteReduction": 7.5,
+    "hueLockAngle": 12,
+    "shadowPoint": 2,
+    "colorMode": "color",
+    "preserveWhite": false,
+    "preserveBlack": true,
+    "ignoreTransparent": true,
+    "enableHueGapAnalysis": true,
+    "neutralSovereigntyThreshold": 10,
+    "preprocessingIntensity": "medium",
+    "refinementPasses": 1
+  }
+}

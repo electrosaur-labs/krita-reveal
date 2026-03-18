@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Service
+ServiceTypes=Krita/PythonPlugin
+X-KDE-Library=krita_reveal
+X-Krita-Manual=Manual.html
+Name=Reveal Separation
+Comment=Screen-print colour separation via pyreveal

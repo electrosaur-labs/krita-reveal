@@ -1,0 +1,69 @@
+{
+  "id": "fine_art_scan",
+  "version": "1.0.0",
+  "name": "Fine Art Scan",
+  "group": "natural",
+  "engine": "direct",
+  "description": "Baseline for 16-bit photographic scans. High entropy target protects clinical color diversity.",
+  "preferred_sectors": [
+    "cyan",
+    "chartreuse",
+    "orange",
+    "magenta",
+    "blue",
+    "green"
+  ],
+  "centroid": {
+    "l": 52.3,
+    "c": 30,
+    "k": 94.2,
+    "l_std_dev": 28.6,
+    "hue_entropy": 0.75,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.15
+  },
+  "weights": {
+    "l": 0.3,
+    "c": 1,
+    "k": 0.8,
+    "l_std_dev": 1.5,
+    "hue_entropy": 1.5
+  },
+  "parameters": {
+    "minColors": 4,
+    "maxColors": 10,
+    "ditherType": "atkinson",
+    "distanceMetric": "cie2000",
+    "lWeight": 1.4,
+    "cWeight": 4.5,
+    "blackBias": 6.5,
+    "vibrancyMode": "subtle",
+    "vibrancyBoost": 1.05,
+    "highlightThreshold": 96,
+    "highlightBoost": 1,
+    "enablePaletteReduction": true,
+    "paletteReduction": 8.5,
+    "substrateMode": "auto",
+    "substrateTolerance": 2,
+    "shadowPoint": 12,
+    "enableHueGapAnalysis": true,
+    "hueLockAngle": 15,
+    "colorMode": "color",
+    "preserveWhite": true,
+    "preserveBlack": true,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 0,
+    "preprocessingIntensity": "light",
+    "shadowClamp": 6,
+    "detailRescue": 5,
+    "speckleRescue": 4,
+    "medianPass": false,
+    "minVolume": 1.5,
+    "refinementPasses": 2
+  },
+  "scoring": {
+    "chromaProfile": "moderate",
+    "tonalRange": "mid",
+    "expects_diversity": true
+  }
+}

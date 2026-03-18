@@ -1,0 +1,51 @@
+{
+  "id": "everyday_photo",
+  "version": "1.0.0",
+  "name": "Everyday Photo",
+  "group": "natural",
+  "engine": "direct",
+  "description": "Baseline metrics for standard photographic scenes.",
+  "centroid": {
+    "l": 50,
+    "c": 25,
+    "k": 60,
+    "l_std_dev": 20,
+    "hue_entropy": 0.5,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.2
+  },
+  "weights": {
+    "l": 0.5,
+    "c": 1,
+    "k": 1.5,
+    "l_std_dev": 2
+  },
+  "parameters": {
+    "minColors": 4,
+    "maxColors": 10,
+    "ditherType": "none",
+    "distanceMetric": "cie2000",
+    "lWeight": 1,
+    "cWeight": 1,
+    "blackBias": 5,
+    "vibrancyMode": "linear",
+    "vibrancyBoost": 1,
+    "highlightThreshold": 95,
+    "highlightBoost": 1.5,
+    "enablePaletteReduction": true,
+    "paletteReduction": 8,
+    "substrateMode": "auto",
+    "substrateTolerance": 3.5,
+    "shadowPoint": 15,
+    "enableHueGapAnalysis": true,
+    "hueLockAngle": 15,
+    "colorMode": "color",
+    "preserveWhite": false,
+    "preserveBlack": false,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 10,
+    "preprocessingIntensity": "auto",
+    "speckleRescue": 4,
+    "refinementPasses": 1
+  }
+}

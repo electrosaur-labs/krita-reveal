@@ -1,0 +1,60 @@
+{
+  "id": "hot_yellow",
+  "version": "1.1.0",
+  "name": "Hot Yellow",
+  "group": "vibrant",
+  "engine": "direct",
+  "description": "Maximum aggression for high-chroma yellows. Uses a high primary-sector trigger to keep yellows sovereign.",
+  "preferred_sectors": [
+    "yellow"
+  ],
+  "centroid": {
+    "l": 60,
+    "c": 95,
+    "k": 50,
+    "l_std_dev": 15,
+    "hue_entropy": 0.2,
+    "temperature_bias": 0.9,
+    "primary_sector_weight": 0.6
+  },
+  "weights": {
+    "l": 0.3,
+    "c": 3,
+    "k": 1,
+    "l_std_dev": 5,
+    "primary_sector_weight": 5
+  },
+  "parameters": {
+    "minColors": 6,
+    "maxColors": 10,
+    "ditherType": "none",
+    "distanceMetric": "cie76",
+    "lWeight": 0.5,
+    "cWeight": 6.5,
+    "blackBias": 4,
+    "vibrancyMode": "exponential",
+    "vibrancyBoost": 2.2,
+    "highlightThreshold": 97,
+    "highlightBoost": 2,
+    "enablePaletteReduction": true,
+    "paletteReduction": 6,
+    "substrateMode": "auto",
+    "substrateTolerance": 2,
+    "shadowPoint": 5,
+    "enableHueGapAnalysis": false,
+    "hueLockAngle": 45,
+    "colorMode": "color",
+    "preserveWhite": true,
+    "preserveBlack": true,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 25,
+    "preprocessingIntensity": "medium",
+    "speckleRescue": 4,
+    "refinementPasses": 1
+  },
+  "scoring": {
+    "chromaProfile": "extreme",
+    "tonalRange": "bright",
+    "expects_dominance": true
+  }
+}

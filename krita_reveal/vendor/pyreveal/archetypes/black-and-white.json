@@ -1,0 +1,59 @@
+{
+  "id": "black_and_white",
+  "version": "1.0.0",
+  "name": "Black & White",
+  "group": "soft",
+  "engine": "direct",
+  "description": "Pure grayscale master. Hard-locks neutral centroids to prevent chromatic noise.",
+  "centroid": {
+    "l": 50,
+    "c": 2,
+    "k": 100,
+    "l_std_dev": 28,
+    "hue_entropy": 0.05,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.95
+  },
+  "weights": {
+    "l": 0.5,
+    "c": 5,
+    "k": 1,
+    "l_std_dev": 2,
+    "hue_entropy": 5
+  },
+  "parameters": {
+    "minColors": 8,
+    "maxColors": 10,
+    "ditherType": "atkinson",
+    "distanceMetric": "cie2000",
+    "lWeight": 2,
+    "cWeight": 0.5,
+    "blackBias": 5,
+    "vibrancyMode": "linear",
+    "vibrancyBoost": 1,
+    "highlightThreshold": 94,
+    "highlightBoost": 1.2,
+    "enablePaletteReduction": true,
+    "paletteReduction": 6,
+    "substrateMode": "white",
+    "substrateTolerance": 2,
+    "shadowPoint": 5,
+    "enableHueGapAnalysis": false,
+    "hueLockAngle": 10,
+    "colorMode": "grayscale",
+    "preserveWhite": true,
+    "preserveBlack": true,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 35,
+    "preprocessingIntensity": "medium",
+    "shadowClamp": 6,
+    "speckleRescue": 4,
+    "minVolume": 0.5,
+    "refinementPasses": 0
+  },
+  "scoring": {
+    "chromaProfile": "achromatic",
+    "tonalRange": "any",
+    "expects_monochrome": true
+  }
+}

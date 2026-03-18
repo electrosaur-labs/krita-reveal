@@ -1,0 +1,166 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Archetype Definition v2.0",
+  "description": "Schema for defining image archetypes with target DNA v2.0 characteristics including 12-sector hue analysis.",
+  "type": "object",
+  "required": ["id", "name", "centroid", "parameters"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z_]+$",
+      "description": "Unique identifier for the archetype (snake_case)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for the archetype"
+    },
+    "group": {
+      "type": "string",
+      "enum": ["natural", "soft", "graphic", "dramatic", "vibrant", "specialist"],
+      "description": "Intent-based grouping for carousel filtering"
+    },
+    "engine": {
+      "type": "string",
+      "enum": ["distilled", "direct"],
+      "default": "direct",
+      "description": "Quantization strategy. 'direct' = standard MK 1.5 posterization (default for all named archetypes). 'distilled' = over-quantize to 3×K then furthest-point sample back to K (used only by the Distilled pseudo-archetype for max tonal diversity at the cost of performance). User can always override."
+    },
+    "description": {
+      "type": "string",
+      "description": "Target image characteristics"
+    },
+    "preferred_sectors": {
+      "type": "array",
+      "description": "Optional: Hue sectors this archetype favors (e.g., ['blue', 'cyan'] for Blue Rescue)",
+      "items": {
+        "type": "string",
+        "enum": ["red", "orange", "yellow", "chartreuse", "green", "cyan", "azure", "blue", "purple", "magenta", "pink", "rose"]
+      }
+    },
+    "centroid": {
+      "type": "object",
+      "description": "Target DNA values defining the archetype's position in 7D feature space",
+      "required": ["l", "c", "k", "l_std_dev", "hue_entropy", "temperature_bias", "primary_sector_weight"],
+      "properties": {
+        "l": { "type": "number", "minimum": 0, "maximum": 100, "description": "Target lightness" },
+        "c": { "type": "number", "minimum": 0, "maximum": 150, "description": "Target chroma" },
+        "k": { "type": "number", "minimum": 0, "maximum": 100, "description": "Target contrast" },
+        "l_std_dev": { "type": "number", "minimum": 0, "maximum": 50, "description": "Target lightness variance" },
+        "hue_entropy": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Target spectrum diversity (0=mono, 1=rainbow)"
+        },
+        "temperature_bias": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Target color temp (-1=cool, 1=warm)"
+        },
+        "primary_sector_weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Target weight of the dominant 30° sector"
+        }
+      }
+    },
+    "weights": {
+      "type": "object",
+      "description": "Per-dimension weights for compatibility scoring",
+      "properties": {
+        "l": { "type": "number", "default": 1.0 },
+        "c": { "type": "number", "default": 1.5 },
+        "k": { "type": "number", "default": 2.0 },
+        "l_std_dev": { "type": "number", "default": 1.0 },
+        "hue_entropy": { "type": "number", "default": 2.0 },
+        "temperature_bias": { "type": "number", "default": 1.5 },
+        "primary_sector_weight": { "type": "number", "default": 2.5 }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Processing parameters applied upon match",
+      "required": [
+        "targetColorsSlider", "lWeight", "cWeight", "blackBias",
+        "vibrancyMode", "vibrancyBoost",
+        "enablePaletteReduction", "paletteReduction", "hueLockAngle",
+        "enableHueGapAnalysis", "ditherType", "neutralSovereigntyThreshold"
+      ],
+      "properties": {
+        "targetColorsSlider": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "lWeight": { "type": "number", "minimum": 0, "maximum": 5 },
+        "cWeight": { "type": "number", "minimum": 0, "maximum": 10 },
+        "blackBias": { "type": "number", "minimum": 0, "maximum": 10 },
+        "vibrancyMode": { "type": "string", "enum": ["linear", "subtle", "moderate", "aggressive", "exponential"] },
+        "vibrancyBoost": { "type": "number", "minimum": 0, "maximum": 3 },
+        "paletteReduction": { "type": "number", "minimum": 0, "maximum": 20 },
+        "hueLockAngle": { "type": "number", "minimum": 0, "maximum": 90 },
+        "neutralSovereigntyThreshold": { "type": "number", "minimum": 0, "maximum": 100 },
+        "ditherType": { "type": "string", "enum": ["atkinson", "none", "floyd-steinberg", "stucki", "bayer"] },
+        "shadowClamp": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Forces ink density between 0-N% up to exactly N%. Eliminates unprintable tints."
+        },
+        "chromaGate": {
+          "type": "number",
+          "minimum": 1.0,
+          "maximum": 3.0,
+          "description": "Multiplier for cWeight when DNA.maxC is high. Improves high-chroma color accuracy."
+        },
+        "detailRescue": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20,
+          "description": "Reduces entropy noise floor by N points. Preserves small structural details."
+        },
+        "speckleRescue": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "Morphological despeckle: removes isolated clusters below N pixels. Eliminates unprintable digital lint. Standard: 4 pixels for 230-mesh screens."
+        },
+        "medianPass": {
+          "type": "boolean",
+          "description": "Pre-posterization median filter (3×3): removes salt & pepper noise before palette generation. Essential for organic/sensor photos to prevent noise from becoming distinct colors. Disable for intentional halftone patterns."
+        },
+        "minVolume": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Palette post-pruning: merge colors with pixel coverage below N%. Resource allocation - weak colors (<minVolume) are merged to nearest neighbors. Prevents outlier/noise colors from claiming screens."
+        },
+        "ghostFloor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.1,
+          "description": "Distilled-engine only. Minimum coverage fraction (0–0.1) for a color to enter FPS selection. Colors in the over-palette below this threshold are excluded before furthest-point sampling runs. Default 0.001 (0.1%). Raise to 0.01 (1%) for single-dominant-hue archetypes where FPS selects spectral outliers (stems, shadows) that have low coverage but high spectral distance from the dominant hue mass."
+        },
+        "refinementPasses": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "default": 1,
+          "description": "K-means refinement passes after median cut. 0=skip (graphic/grayscale archetypes), 1=default single pass, 2+=extra convergence for complex photographic content."
+        },
+        "chromaAxisWeight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 0,
+          "description": "Weight for C* (chroma magnitude) as a virtual 4th split axis in median cut. 0=disabled (default). When >0, boxes can split along the chroma gradient (e.g. C=5→C=145) independent of hue angle. Critical for warm images with smooth chroma ramps where Cartesian a/b splits miss the chroma dimension."
+        },
+        "neutralIsolationThreshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30,
+          "default": 0,
+          "description": "Pre-isolate neutral pixels (C* < threshold) into a separate box before median cut begins. 0=disabled (default). When >0, prevents the neutral majority from consuming split budget and dragging centroids toward low chroma. Particularly effective in images with >50% neutral content."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "vivid_poster",
+  "version": "1.1.0",
+  "name": "Vivid Poster",
+  "group": "graphic",
+  "engine": "direct",
+  "description": "High-impact graphic style that respects luminance boundaries. Clean lines, bold chroma.",
+  "centroid": {
+    "l": 50,
+    "c": 60,
+    "k": 70,
+    "l_std_dev": 25,
+    "hue_entropy": 0.4,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.35
+  },
+  "weights": {
+    "l": 0.5,
+    "c": 1.5,
+    "k": 1,
+    "l_std_dev": 2
+  },
+  "parameters": {
+    "minColors": 6,
+    "maxColors": 12,
+    "ditherType": "none",
+    "distanceMetric": "cie2000",
+    "lWeight": 1.6,
+    "cWeight": 4.0,
+    "blackBias": 2.5,
+    "vibrancyMode": "moderate",
+    "vibrancyBoost": 1.2,
+    "highlightThreshold": 95,
+    "highlightBoost": 1.1,
+    "enablePaletteReduction": true,
+    "paletteReduction": 5.0,
+    "substrateMode": "auto",
+    "substrateTolerance": 2,
+    "shadowPoint": 8,
+    "enableHueGapAnalysis": true,
+    "hueLockAngle": 15,
+    "colorMode": "color",
+    "preserveWhite": false,
+    "preserveBlack": false,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 12,
+    "preprocessingIntensity": "light",
+    "refinementPasses": 1
+  }
+}

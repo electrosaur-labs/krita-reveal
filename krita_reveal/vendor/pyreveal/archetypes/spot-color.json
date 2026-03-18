@@ -1,0 +1,51 @@
+{
+  "id": "spot_color",
+  "version": "1.0.0",
+  "name": "Spot Color",
+  "group": "graphic",
+  "engine": "direct",
+  "description": "Ultra-flat colors, zero gradients. High hue-locking for surgical separation of spot colors.",
+  "centroid": {
+    "l": 50,
+    "c": 40,
+    "k": 60,
+    "l_std_dev": 2.5,
+    "hue_entropy": 0.65,
+    "temperature_bias": 0,
+    "primary_sector_weight": 0.2
+  },
+  "weights": {
+    "l": 0.5,
+    "c": 1.5,
+    "k": 1,
+    "l_std_dev": 5,
+    "hue_entropy": 1.5
+  },
+  "parameters": {
+    "minColors": 4,
+    "maxColors": 10,
+    "ditherType": "none",
+    "distanceMetric": "cie2000",
+    "lWeight": 0.5,
+    "cWeight": 1.5,
+    "blackBias": 1,
+    "vibrancyMode": "linear",
+    "vibrancyBoost": 1,
+    "highlightThreshold": 98,
+    "highlightBoost": 1,
+    "enablePaletteReduction": true,
+    "paletteReduction": 6,
+    "substrateMode": "auto",
+    "substrateTolerance": 2,
+    "shadowPoint": 2,
+    "enableHueGapAnalysis": true,
+    "hueLockAngle": 60,
+    "colorMode": "color",
+    "preserveWhite": true,
+    "preserveBlack": true,
+    "ignoreTransparent": true,
+    "neutralSovereigntyThreshold": 10,
+    "preprocessingIntensity": "none",
+    "refinementPasses": 0
+  }
+}
