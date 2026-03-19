@@ -203,9 +203,11 @@ class RevealCommandProcessor(QObject):
         msg = f"{meta['final_colors']} colours · {arch_name} ({meta['duration']}s)" if arch_name else \
               f"{meta['final_colors']} colours ({meta['duration']}s)"
 
-        # Store scores from first separation; reuse on reruns (same DNA, scores don't change)
+        # Only update scores from a full auto-match ranking (>1 entry).
+        # Forced single-archetype reruns return a placeholder list with score=1.0
+        # that must not overwrite the real ranking from the initial separation.
         fresh = result.get('_archetype_scores', [])
-        if fresh:
+        if len(fresh) > 1:
             self._archetype_scores = fresh
         self._state.set_done(msg, post_jpg, orig_jpg, palette, result,
                              archetypes=self._archetype_scores,

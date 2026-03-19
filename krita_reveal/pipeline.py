@@ -99,15 +99,20 @@ def _get_archetype_scores(config: dict) -> list:
     from pyreveal.analysis.archetype_loader import ArchetypeLoader
     ranking = (config.get('meta') or {}).get('match_ranking') or []
     if not ranking:
+        params = (config.get('parameters') or {})
         return [{'id': config.get('id', ''), 'name': config.get('name', ''),
-                 'group': '', 'score': 1.0}]
+                 'group': '', 'score': 1.0,
+                 'min_colors': params.get('minColors', 4),
+                 'max_colors': params.get('maxColors', 8)}]
     arch_by_id = {a['id']: a for a in ArchetypeLoader.load_archetypes()}
     return [
         {
-            'id':    m['id'],
-            'name':  arch_by_id.get(m['id'], {}).get('name', m['id']),
-            'group': arch_by_id.get(m['id'], {}).get('group', ''),
-            'score': m['score'],
+            'id':         m['id'],
+            'name':       arch_by_id.get(m['id'], {}).get('name', m['id']),
+            'group':      arch_by_id.get(m['id'], {}).get('group', ''),
+            'score':      m['score'],
+            'min_colors': arch_by_id.get(m['id'], {}).get('parameters', {}).get('minColors', 4),
+            'max_colors': arch_by_id.get(m['id'], {}).get('parameters', {}).get('maxColors', 8),
         }
         for m in ranking
     ]

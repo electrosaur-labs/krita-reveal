@@ -464,8 +464,10 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
             <button id="btn-help-toggle" title="Toggle help descriptions">?</button>
         </div>
 
-        <div id="archetype-bar" style="display:none;">
-            <select id="sel-archetype" title="Select archetype"></select>
+        <div id="archetype-bar">
+            <select id="sel-archetype" title="Select archetype">
+                <option value="__auto__">Auto-detect</option>
+            </select>
         </div>
 
         <div id="knobs-panel">
@@ -674,21 +676,40 @@ initSlider('k-speckle',      'v-speckle',      v => Math.round(v) + ' px',   're
 initSlider('k-clamp',        'v-clamp',        v => Math.round(v) + '%',     'revert-clamp');
 
 // ── Archetype selector ───────────────────────────────────────────────────────
+let archetypeColors = {};  // id → max_colors
+
 function renderArchetypes(archetypes, matchedId) {
+    archetypeColors = {};
     selArchetype.innerHTML = '';
+
+    // Always keep Auto-detect at top
+    const autoOpt = document.createElement('option');
+    autoOpt.value = '__auto__';
+    autoOpt.textContent = 'Auto-detect';
+    selArchetype.appendChild(autoOpt);
+
     const sorted = archetypes.slice().sort((a, b) => b.score - a.score);
     sorted.forEach(a => {
+        archetypeColors[a.id] = a.max_colors || 6;
         const opt = document.createElement('option');
         opt.value = a.id;
         opt.textContent = `${a.name}  ${Math.round(a.score)}%`;
         if (a.id === matchedId) opt.selected = true;
         selArchetype.appendChild(opt);
     });
-    archetypeBar.style.display = 'block';
 }
 
 selArchetype.addEventListener('change', () => {
     if (!hasResult || isRunning) return;
+
+    // Propagate archetype's recommended color count to the slider
+    const archId = selArchetype.value;
+    if (archId !== '__auto__' && archetypeColors[archId]) {
+        const slider = document.getElementById('k-colors');
+        slider.value = archetypeColors[archId];
+        slider.dispatchEvent(new Event('input'));  // update display, not scheduleRerun
+    }
+
     isRunning = true;
     hasResult = false;
     previewCont.classList.remove('has-image');
@@ -700,7 +721,7 @@ selArchetype.addEventListener('change', () => {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            archetype_id: selArchetype.value,
+            archetype_id: archId,
             colors:  parseFloat(document.getElementById('k-colors').value),
             density: parseFloat(document.getElementById('k-density').value),
             speckle: parseFloat(document.getElementById('k-speckle').value),
@@ -893,7 +914,6 @@ function startSeparation() {
     grid.innerHTML = '';
     paletteData = [];
     surgeon.classList.remove('visible');
-    archetypeBar.style.display = 'none';
     btnBuild.style.display = 'none';
     previewCont.classList.remove('has-image');
 
