@@ -47,6 +47,7 @@ from .palette_ops import (
     _lab_distance,
 )
 from .centroid_strategies import CENTROID_STRATEGIES
+from .reveal_mk15_engine import posterize_mk15
 
 
 # ---------------------------------------------------------------------------
@@ -692,10 +693,11 @@ def posterize(pixels, width: int, height: int, target_colors: int, options: dict
         raise NotImplementedError("engine_type='classic' (RGB median cut) is not yet ported to pyreveal")
 
     if engine_type in ('reveal-mk1.5', 'reveal-mk2'):
-        raise NotImplementedError(f"engine_type='{engine_type}' (RevealMk15Engine) is not yet ported to pyreveal")
+        return posterize_mk15(pixels, width, height, target_colors, merged)
 
     if engine_type == 'distilled':
-        raise NotImplementedError("engine_type='distilled' (PaletteDistiller) is not yet ported to pyreveal")
+        # Distilled (over-quantize + furthest-point) not yet ported — use Mk1.5
+        return posterize_mk15(pixels, width, height, target_colors, merged)
 
     # Unknown engine — fall back to reveal
     return _posterize_reveal_mk1_0(pixels, width, height, target_colors, merged)
