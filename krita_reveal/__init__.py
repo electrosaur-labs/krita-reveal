@@ -1,8 +1,7 @@
 """
 krita_reveal — Reveal colour separation plugin for Krita.
 
-Entry point: registers the RevealDock panel and the
-"Separate Colours" action on plugin load.
+Entry point: registers the RevealDock panel on plugin load.
 """
 
 import sys
@@ -17,10 +16,6 @@ from krita import DockWidgetFactory, DockWidgetFactoryBase
 from .dock import RevealDock
 
 DOCKER_ID = 'krita_reveal_dock'
-
-
-def createInstance():
-    return Application
 
 
 def setup():
