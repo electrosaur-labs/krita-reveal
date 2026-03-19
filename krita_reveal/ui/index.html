@@ -510,227 +510,6 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
             <input type="range" id="k-clamp" min="0" max="40" value="0" step="1">
             <span class="knob-help" id="h-clamp">Minimum ink density per screen — faint mask areas below this threshold get boosted to a printable level. 0% = no clamping.</span>
 
-            <!-- Method group -->
-            <div class="knob-group-label">Method</div>
-
-            <div class="select-row">
-                <span class="knob-label">Method</span>
-                <button class="knob-revert" id="revert-engine" title="Revert to default">↻</button>
-                <button class="knob-help-btn" data-help="h-engine">?</button>
-            </div>
-            <select id="sel-engine">
-                <option value="reveal">Hue-Aware</option>
-                <option value="balanced">Fast</option>
-                <option value="stencil">Stencil</option>
-            </select>
-            <span class="knob-help" id="h-engine">Hue-Aware: Lab median cut with hue gap recovery — best quality. Fast: Lab median cut without hue analysis. Stencil: luminance-only for single-color work.</span>
-
-            <div class="select-row">
-                <span class="knob-label">Surface</span>
-                <button class="knob-revert" id="revert-substrate" title="Revert to default">↻</button>
-                <button class="knob-help-btn" data-help="h-substrate">?</button>
-            </div>
-            <select id="sel-substrate">
-                <option value="none" selected>None</option>
-                <option value="auto">Auto</option>
-                <option value="white">White</option>
-                <option value="dark">Dark</option>
-                <option value="black">Black</option>
-                <option value="transparent">Transparent</option>
-            </select>
-            <span class="knob-help" id="h-substrate">What you're printing on. Affects how background pixels are handled. Auto detects from the image corners.</span>
-
-            <div class="knob-check-row">
-                <span class="knob-label">Keep White</span>
-                <button class="knob-revert" id="revert-white" title="Revert to default">↻</button>
-                <input type="checkbox" id="chk-white" class="adv-checkbox">
-                <button class="knob-help-btn" data-help="h-white">?</button>
-            </div>
-            <span class="knob-help" id="h-white">Guarantee a pure white screen in the palette — essential when printing on dark substrates.</span>
-
-            <div class="knob-check-row">
-                <span class="knob-label">Keep Black</span>
-                <button class="knob-revert" id="revert-black" title="Revert to default">↻</button>
-                <input type="checkbox" id="chk-black" class="adv-checkbox">
-                <button class="knob-help-btn" data-help="h-black">?</button>
-            </div>
-            <span class="knob-help" id="h-black">Guarantee a pure black screen — keeps crisp outlines and text sharp instead of mixing from other dark colors.</span>
-
-            <!-- Output group -->
-            <div class="knob-group-label">Output</div>
-
-            <div class="select-row">
-                <span class="knob-label">Dither</span>
-                <button class="knob-revert" id="revert-halftone" title="Revert to default">↻</button>
-                <button class="knob-help-btn" data-help="h-halftone">?</button>
-            </div>
-            <select id="sel-halftone">
-                <option value="none" selected>None</option>
-                <option value="floyd-steinberg">Floyd-Steinberg</option>
-                <option value="atkinson">Atkinson</option>
-                <option value="bayer">Bayer</option>
-                <option value="stucki">Stucki</option>
-            </select>
-            <span class="knob-help" id="h-halftone">Dithering pattern to simulate gradients with solid inks. None = hard edges. Floyd-Steinberg = classic error diffusion. Atkinson = sharp, clean. Bayer = ordered grid pattern.</span>
-
-            <!-- Advanced -->
-            <details id="advanced-panel">
-                <summary>Advanced</summary>
-
-                <div class="knob-group-label" style="margin-top:6px; border-top:none;">Algorithm</div>
-
-                <div class="select-row">
-                    <span class="knob-label">Color Matching</span>
-                    <button class="knob-revert" id="revert-matching" title="Revert to default">↻</button>
-                    <button class="knob-help-btn" data-help="h-matching">?</button>
-                </div>
-                <select id="sel-matching">
-                    <option value="cie76" selected>Standard (CIE76)</option>
-                    <option value="cie94">Perceptual (CIE94)</option>
-                    <option value="cie2000">Museum Grade (CIE2000)</option>
-                </select>
-                <span class="knob-help" id="h-matching">Distance formula for matching pixels to palette colors. CIE76: fast — good for graphics. CIE94: chroma-weighted — better for photos. CIE2000: perceptual accuracy — slow but best for fine art.</span>
-
-                <div class="select-row">
-                    <span class="knob-label">Color Selection</span>
-                    <button class="knob-revert" id="revert-strategy" title="Revert to default">↻</button>
-                    <button class="knob-help-btn" data-help="h-strategy">?</button>
-                </div>
-                <select id="sel-strategy">
-                    <option value="SALIENCY">Eye-Catching</option>
-                    <option value="ROBUST_SALIENCY" selected>Balanced</option>
-                    <option value="VOLUMETRIC">Even Fill</option>
-                    <option value="AVERAGE">Simple Average</option>
-                </select>
-                <span class="knob-help" id="h-strategy">How the representative color is picked from each median cut bucket. Balanced (Robust Saliency) is the default for most images.</span>
-
-                <div class="select-row">
-                    <span class="knob-label">Pre-Smoothing</span>
-                    <button class="knob-revert" id="revert-smoothing" title="Revert to default">↻</button>
-                    <button class="knob-help-btn" data-help="h-smoothing">?</button>
-                </div>
-                <select id="sel-smoothing">
-                    <option value="off" selected>Off</option>
-                    <option value="auto">Auto</option>
-                    <option value="light">Light</option>
-                    <option value="medium">Medium</option>
-                    <option value="heavy">Heavy</option>
-                </select>
-                <span class="knob-help" id="h-smoothing">Edge-preserving bilateral filter before separation. Smooths noise while keeping hard edges. Auto enables only when image entropy is high.</span>
-
-                <div class="select-row">
-                    <span class="knob-label">Starting Palette</span>
-                    <button class="knob-revert" id="revert-split" title="Revert to default">↻</button>
-                    <button class="knob-help-btn" data-help="h-split">?</button>
-                </div>
-                <select id="sel-split">
-                    <option value="median" selected>Color Priority</option>
-                    <option value="variance">Detail Priority</option>
-                </select>
-                <span class="knob-help" id="h-split">How median cut partitions color space. Color Priority preserves distinct hues — better for graphic art. Detail Priority splits where error is highest — better for photos.</span>
-
-                <div class="knob-group-label">Saturation</div>
-
-                <div class="knob-row">
-                    <span class="knob-label">Boost</span>
-                    <button class="knob-revert" id="revert-vibrancy" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-vibrancy">1.4×</span>
-                    <button class="knob-help-btn" data-help="h-vibrancy">?</button>
-                </div>
-                <input type="range" id="k-vibrancy" min="0.5" max="3" value="1.4" step="0.1">
-                <span class="knob-help" id="h-vibrancy">Multiplier that pushes centroid colors toward full saturation. Higher values rescue muted colors. 1.0× = no boost.</span>
-
-                <div class="select-row">
-                    <span class="knob-label">Curve</span>
-                    <button class="knob-revert" id="revert-vibrancy-mode" title="Revert to default">↻</button>
-                    <button class="knob-help-btn" data-help="h-vibrancy-mode">?</button>
-                </div>
-                <select id="sel-vibrancy-mode">
-                    <option value="linear">Linear</option>
-                    <option value="subtle">Subtle</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="aggressive" selected>Aggressive</option>
-                    <option value="exponential">Exponential</option>
-                </select>
-                <span class="knob-help" id="h-vibrancy-mode">Shape of the saturation boost curve. Aggressive progressively pushes muted colors toward full saturation.</span>
-
-                <div class="knob-group-label">Color Merging</div>
-
-                <div class="knob-row">
-                    <span class="knob-label">Merge Distance</span>
-                    <button class="knob-revert" id="revert-merge" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-merge">6.0 ΔE</span>
-                    <button class="knob-help-btn" data-help="h-merge">?</button>
-                </div>
-                <input type="range" id="k-merge" min="0" max="20" value="6" step="0.5">
-                <span class="knob-help" id="h-merge">Palette colors closer than this ΔE get merged into one screen. Higher = fewer, more distinct colors.</span>
-
-                <div class="knob-check-row">
-                    <span class="knob-label">Auto Merge</span>
-                    <button class="knob-revert" id="revert-automerge" title="Revert to default">↻</button>
-                    <input type="checkbox" id="chk-automerge" class="adv-checkbox" checked>
-                    <button class="knob-help-btn" data-help="h-automerge">?</button>
-                </div>
-                <span class="knob-help" id="h-automerge">Master switch for the palette reduction pass.</span>
-
-                <div class="knob-check-row">
-                    <span class="knob-label">Hue Recovery</span>
-                    <button class="knob-revert" id="revert-hue-recovery" title="Revert to default">↻</button>
-                    <input type="checkbox" id="chk-hue-recovery" class="adv-checkbox" checked>
-                    <button class="knob-help-btn" data-help="h-hue-recovery">?</button>
-                </div>
-                <span class="knob-help" id="h-hue-recovery">Scan for missing hue sectors and inject rescue colors — prevents minority hues like green foliage from being dropped in warm images.</span>
-
-                <div class="knob-row">
-                    <span class="knob-label">Hue Lock</span>
-                    <button class="knob-revert" id="revert-hue-lock" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-hue-lock">20°</span>
-                    <button class="knob-help-btn" data-help="h-hue-lock">?</button>
-                </div>
-                <input type="range" id="k-hue-lock" min="0" max="90" value="20" step="1">
-                <span class="knob-help" id="h-hue-lock">Hue angle tolerance for locking recovered colors into their target sector. Wider = more forgiving hue matches.</span>
-
-                <div class="knob-group-label">Color Priority</div>
-
-                <div class="knob-row">
-                    <span class="knob-label">Lightness</span>
-                    <button class="knob-revert" id="revert-lweight" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-lweight">1.2×</span>
-                    <button class="knob-help-btn" data-help="h-lweight">?</button>
-                </div>
-                <input type="range" id="k-lweight" min="0.5" max="3" value="1.2" step="0.1">
-                <span class="knob-help" id="h-lweight">Weight for the lightness axis in median cut splitting. Higher = more screens for tonal range.</span>
-
-                <div class="knob-row">
-                    <span class="knob-label">Color Intensity</span>
-                    <button class="knob-revert" id="revert-cweight" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-cweight">2.0×</span>
-                    <button class="knob-help-btn" data-help="h-cweight">?</button>
-                </div>
-                <input type="range" id="k-cweight" min="0.5" max="6" value="2.0" step="0.1">
-                <span class="knob-help" id="h-cweight">Weight for the chroma axis in median cut splitting. Higher = more screens for color intensity differences.</span>
-
-                <div class="knob-row">
-                    <span class="knob-label">Black Pull</span>
-                    <button class="knob-revert" id="revert-blackpull" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-blackpull">3.0</span>
-                    <button class="knob-help-btn" data-help="h-blackpull">?</button>
-                </div>
-                <input type="range" id="k-blackpull" min="0" max="10" value="3.0" step="0.5">
-                <span class="knob-help" id="h-blackpull">Bias that pulls very dark pixels toward a dedicated black screen. Higher = stronger black snap, crisper shadows.</span>
-
-                <div class="knob-group-label">Tone</div>
-
-                <div class="knob-row">
-                    <span class="knob-label">Shadow Point</span>
-                    <button class="knob-revert" id="revert-shadow-point" title="Revert to default">↻</button>
-                    <span class="knob-val" id="v-shadow-point">15 L</span>
-                    <button class="knob-help-btn" data-help="h-shadow-point">?</button>
-                </div>
-                <input type="range" id="k-shadow-point" min="5" max="25" value="15" step="1">
-                <span class="knob-help" id="h-shadow-point">L* value below which pixels are treated as deep shadows — gets special handling to preserve dark detail.</span>
-
-            </details>
 
         </div><!-- /knobs-panel -->
 
@@ -752,25 +531,6 @@ const DEFAULTS = {
     'k-density':        0.5,
     'k-speckle':        0,
     'k-clamp':          0,
-    'sel-engine':       'reveal',
-    'sel-substrate':    'none',
-    'chk-white':        false,
-    'chk-black':        false,
-    'sel-halftone':     'none',
-    'sel-matching':     'cie76',
-    'sel-strategy':     'ROBUST_SALIENCY',
-    'sel-smoothing':    'off',
-    'sel-split':        'median',
-    'k-vibrancy':       1.4,
-    'sel-vibrancy-mode':'aggressive',
-    'k-merge':          6.0,
-    'chk-automerge':    true,
-    'chk-hue-recovery': true,
-    'k-hue-lock':       20,
-    'k-lweight':        1.2,
-    'k-cweight':        2.0,
-    'k-blackpull':      3.0,
-    'k-shadow-point':   15,
 };
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -912,27 +672,6 @@ initSlider('k-colors',       'v-colors',       v => Math.round(v),           're
 initSlider('k-density',      'v-density',      v => v.toFixed(1) + '%',      'revert-density');
 initSlider('k-speckle',      'v-speckle',      v => Math.round(v) + ' px',   'revert-speckle');
 initSlider('k-clamp',        'v-clamp',        v => Math.round(v) + '%',     'revert-clamp');
-initSlider('k-vibrancy',     'v-vibrancy',     v => v.toFixed(1) + '×',      'revert-vibrancy');
-initSlider('k-merge',        'v-merge',        v => v.toFixed(1) + ' ΔE',    'revert-merge');
-initSlider('k-hue-lock',     'v-hue-lock',     v => Math.round(v) + '°',     'revert-hue-lock');
-initSlider('k-lweight',      'v-lweight',      v => v.toFixed(1) + '×',      'revert-lweight');
-initSlider('k-cweight',      'v-cweight',      v => v.toFixed(1) + '×',      'revert-cweight');
-initSlider('k-blackpull',    'v-blackpull',    v => v.toFixed(1),            'revert-blackpull');
-initSlider('k-shadow-point', 'v-shadow-point', v => Math.round(v) + ' L',    'revert-shadow-point');
-
-initSelect('sel-engine',        'revert-engine');
-initSelect('sel-substrate',     'revert-substrate');
-initSelect('sel-halftone',      'revert-halftone');
-initSelect('sel-matching',      'revert-matching');
-initSelect('sel-strategy',      'revert-strategy');
-initSelect('sel-smoothing',     'revert-smoothing');
-initSelect('sel-split',         'revert-split');
-initSelect('sel-vibrancy-mode', 'revert-vibrancy-mode');
-
-initCheckbox('chk-white',        'revert-white');
-initCheckbox('chk-black',        'revert-black');
-initCheckbox('chk-automerge',    'revert-automerge');
-initCheckbox('chk-hue-recovery', 'revert-hue-recovery');
 
 // ── Archetype selector ───────────────────────────────────────────────────────
 function renderArchetypes(archetypes, matchedId) {
@@ -976,29 +715,10 @@ selArchetype.addEventListener('change', () => {
 // ── Collect params ───────────────────────────────────────────────────────────
 function collectParams() {
     return {
-        colors:             parseFloat(document.getElementById('k-colors').value),
-        density:            parseFloat(document.getElementById('k-density').value),
-        speckle:            parseFloat(document.getElementById('k-speckle').value),
-        clamp:              parseFloat(document.getElementById('k-clamp').value),
-        engine_type:        document.getElementById('sel-engine').value,
-        substrate_mode:     document.getElementById('sel-substrate').value,
-        preserve_white:     document.getElementById('chk-white').checked,
-        preserve_black:     document.getElementById('chk-black').checked,
-        dither_type:        document.getElementById('sel-halftone').value,
-        distance_metric:    document.getElementById('sel-matching').value,
-        strategy:           document.getElementById('sel-strategy').value,
-        preprocessing:      document.getElementById('sel-smoothing').value,
-        split_mode:         document.getElementById('sel-split').value,
-        vibrancy_boost:     parseFloat(document.getElementById('k-vibrancy').value),
-        vibrancy_mode:      document.getElementById('sel-vibrancy-mode').value,
-        palette_reduction:  parseFloat(document.getElementById('k-merge').value),
-        enable_palette_reduction: document.getElementById('chk-automerge').checked,
-        enable_hue_gap_analysis:  document.getElementById('chk-hue-recovery').checked,
-        hue_lock_angle:     parseFloat(document.getElementById('k-hue-lock').value),
-        l_weight:           parseFloat(document.getElementById('k-lweight').value),
-        c_weight:           parseFloat(document.getElementById('k-cweight').value),
-        black_bias:         parseFloat(document.getElementById('k-blackpull').value),
-        shadow_point:       parseFloat(document.getElementById('k-shadow-point').value),
+        colors:  parseFloat(document.getElementById('k-colors').value),
+        density: parseFloat(document.getElementById('k-density').value),
+        speckle: parseFloat(document.getElementById('k-speckle').value),
+        clamp:   parseFloat(document.getElementById('k-clamp').value),
     };
 }
 

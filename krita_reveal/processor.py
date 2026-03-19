@@ -130,7 +130,7 @@ class RevealCommandProcessor(QObject):
 
         self._proxy_w, self._proxy_h = dw, dh
         self._doc_w,   self._doc_h   = w,  h
-        self._proxy_pixels           = pixels
+        self._proxy_pixels           = list(pixels)  # copy — preprocessing modifies in-place
         self._state.set_running(f'Separating {dw}×{dh}…')
 
         options = {
