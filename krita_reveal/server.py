@@ -34,6 +34,8 @@ class RevealState:
         self.preview_version     = 0        # increments whenever preview_jpeg changes
         self.archetypes          = []       # [{id,name,group,score}, ...] sorted best-first
         self.matched_archetype_id = ''
+        self.matched_archetype   = {}      # {id,name,density,speckle,clamp} — actual values used
+        self.suggestions         = []       # [{r,g,b,hex,reason,score}, ...]
 
     def set_running(self, msg):
         with self._lock:
@@ -42,7 +44,8 @@ class RevealState:
             self.is_error = False
 
     def set_done(self, msg, preview_jpeg, orig_jpeg, palette, result,
-                 archetypes=None, matched_archetype_id=''):
+                 archetypes=None, matched_archetype_id='', matched_archetype=None,
+                 suggestions=None):
         with self._lock:
             self.status              = 'done'
             self.message             = msg
@@ -55,6 +58,8 @@ class RevealState:
             self.preview_version     += 1
             self.archetypes          = archetypes or []
             self.matched_archetype_id = matched_archetype_id
+            self.matched_archetype   = matched_archetype or {}
+            self.suggestions         = list(suggestions or [])
 
     def set_preview(self, jpeg_bytes):
         with self._lock:
@@ -88,6 +93,8 @@ class RevealState:
                 'has_result':           self.has_result,
                 'archetypes':           list(self.archetypes),
                 'matched_archetype_id': self.matched_archetype_id,
+                'matched_archetype':    dict(self.matched_archetype),
+                'suggestions':          list(self.suggestions),
             }
 
     def get_preview_jpeg(self):

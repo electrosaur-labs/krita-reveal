@@ -25,7 +25,7 @@ from ..color.encoding import (
     LAB16_AB_NEUTRAL,
     L_SCALE,
     AB_SCALE,
-    lab_to_rgb,
+    lab_to_rgb_d50 as lab_to_rgb,
 )
 from .lab_median_cut import median_cut_in_lab_space, _analyze_color_space
 from .palette_ops import (

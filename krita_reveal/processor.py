@@ -65,6 +65,14 @@ class _Worker(QThread):
                 if idx < n:
                     counts[idx] += 1
             result['_coverage'] = [100.0 * c / total for c in counts]
+            from .suggested_color_analyzer import SuggestedColorAnalyzer
+            substrate_mode = self._options.get('substrate_mode', 'none')
+            palette_lab = result.get('palette_lab', [])
+            suggestions = SuggestedColorAnalyzer.analyze(
+                self._pixels, self._width, self._height,
+                palette_lab, substrate_mode=substrate_mode,
+            )
+            result['_suggestions'] = suggestions
             self.done.emit(result)
         except Exception as e:
             self.error.emit(str(e))
@@ -134,12 +142,11 @@ class RevealCommandProcessor(QObject):
         self._state.set_running(f'Separating {dw}×{dh}…')
 
         options = {
-            # Use archetype-driven mode (auto-match); mechanical knobs override
+            # Use archetype-driven mode (auto-match); mechanical knobs are NOT
+            # injected here so the archetype's own min_volume / speckle_rescue /
+            # shadow_clamp values drive the first run.  The UI sliders will be
+            # updated from _matched_archetype once the result arrives.
             '_archetype_id':          '__auto__',
-            # Core mechanical knobs
-            'density_floor':          params.get('density', 0.5) / 100.0,
-            'speckle_rescue':         int(params.get('speckle', 0)),
-            'shadow_clamp':           int(params.get('clamp', 0)),
             # Engine selection
             'engine_type':            params.get('engine_type', 'reveal'),
             'substrate_mode':         params.get('substrate_mode', 'none'),
@@ -169,8 +176,10 @@ class RevealCommandProcessor(QObject):
         # Pre-smoothing: store for use after analyze_image
         preprocessing_intensity = params.get('preprocessing', 'off')
         options['_preprocessing_intensity'] = preprocessing_intensity
+        # Pass colors=0 so the archetype's adaptive color count drives the first run.
+        # The Colors slider is updated from _matched_archetype once the result arrives.
         self._worker = _Worker(
-            pixels, dw, dh, int(params.get('colors', 6)), options,
+            pixels, dw, dh, 0, options,
         )
         self._worker.done.connect(self._on_worker_done)
         self._worker.error.connect(self._on_worker_error)
@@ -197,6 +206,17 @@ class RevealCommandProcessor(QObject):
             for i, c in enumerate(result['palette'])
         ]
 
+        from pyreveal.color.encoding import lab_to_rgb
+        suggestions_out = []
+        for s in result.get('_suggestions', []):
+            r, g, b = lab_to_rgb(s['L'], s['a'], s['b'])
+            suggestions_out.append({
+                'r': r, 'g': g, 'b': b,
+                'hex': f"#{r:02X}{g:02X}{b:02X}",
+                'reason': s.get('reason', ''),
+                'score': round(s.get('score', 0), 1),
+            })
+
         meta      = result['metadata']
         matched   = result.get('_matched_archetype', {})
         arch_name = matched.get('name', '')
@@ -211,7 +231,9 @@ class RevealCommandProcessor(QObject):
             self._archetype_scores = fresh
         self._state.set_done(msg, post_jpg, orig_jpg, palette, result,
                              archetypes=self._archetype_scores,
-                             matched_archetype_id=matched.get('id', ''))
+                             matched_archetype_id=matched.get('id', ''),
+                             matched_archetype=matched,
+                             suggestions=suggestions_out)
 
     def _on_worker_error(self, msg):
         self._state.set_error(f'Error: {msg}')
@@ -319,16 +341,45 @@ class RevealCommandProcessor(QObject):
         if self._proxy_pixels is None:
             return
         archetype_id = params.get('archetype_id', '__auto__')
-        options = {
-            '_archetype_id':  archetype_id,
-            'density_floor':  params.get('density', 0.5) / 100.0,
-            'speckle_rescue': int(params.get('speckle', 0)),
-            'shadow_clamp':   int(params.get('clamp', 0)),
-        }
+        options = {'_archetype_id': archetype_id}
+        # Only override mechanical knobs when the UI explicitly sends them.
+        # Archetype-switch reruns omit these so the archetype's own values drive.
+        if 'density' in params:
+            options['density_floor']  = float(params['density']) / 100.0
+        if 'speckle' in params:
+            options['speckle_rescue'] = int(params['speckle'])
+        if 'clamp' in params:
+            options['shadow_clamp']   = int(params['clamp'])
+        # Advanced algorithm overrides — pass when explicitly sent (scheduleRerun path)
+        for key in ('vibrancy_boost', 'l_weight', 'c_weight', 'black_bias',
+                    'shadow_point', 'palette_reduction', 'hue_lock_angle',
+                    'neutral_sovereignty_threshold', 'chroma_gate',
+                    'highlight_threshold', 'highlight_boost',
+                    'detail_rescue', 'substrate_tolerance'):
+            if key in params:
+                options[key] = float(params[key])
+        for key in ('vibrancy_mode', 'substrate_mode',
+                    'engine_type', 'color_mode', 'dither_type',
+                    'distance_metric', 'centroid_strategy', 'split_mode', 'quantizer'):
+            if key in params:
+                options[key] = str(params[key])
+        for key in ('enable_palette_reduction', 'enable_hue_gap_analysis',
+                    'preserve_white', 'preserve_black',
+                    'median_pass', 'ignore_transparent'):
+            if key in params:
+                options[key] = bool(params[key])
+        for key in ('mesh_size', 'trap_size'):
+            if key in params:
+                options[key] = int(params[key])
+        if 'preprocessing' in params:
+            options['_preprocessing_intensity'] = str(params['preprocessing'])
         dw, dh = self._proxy_w, self._proxy_h
         self._state.set_running(f'Applying archetype…')
+        # colors=0 when omitted → archetype's adaptive count drives (same as _do_separate).
+        # Manual slider reruns send colors explicitly so the user's value is respected.
+        colors = int(params['colors']) if 'colors' in params else 0
         self._worker = _Worker(
-            self._proxy_pixels, dw, dh, int(params.get('colors', 6)), options,
+            self._proxy_pixels, dw, dh, colors, options,
         )
         self._worker.done.connect(self._on_worker_done)
         self._worker.error.connect(self._on_worker_error)

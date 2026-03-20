@@ -28,7 +28,7 @@ from ..color.encoding import (
     LAB16_AB_NEUTRAL,
     L_SCALE,
     AB_SCALE,
-    lab_to_rgb,
+    lab_to_rgb_d50 as lab_to_rgb,
     rgb_to_lab,
 )
 from .hue_gap_recovery import (
@@ -565,7 +565,9 @@ def _posterize_reveal_mk1_0(pixels, width: int, height: int, target_colors: int,
     duration = time.perf_counter() - start_time
 
     # ── Density floor ────────────────────────────────────────────────────
-    density_floor_threshold = options.get('density_floor', 0.005 if not is_legacy_v1 else 0.0)
+    # Use the already-resolved density_floor (which is 0.0 for is_legacy_v1),
+    # not a fresh options.get() that would bypass the cie76 reset above.
+    density_floor_threshold = density_floor
 
     if density_floor_threshold > 0:
         protected = set()

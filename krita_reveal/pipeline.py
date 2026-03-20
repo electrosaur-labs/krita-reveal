@@ -166,6 +166,8 @@ def run_separation(pixels: list, width: int, height: int,
 
     dna = pyreveal.analyze_image(pixels, width, height, {'bit_depth': 16})
 
+    mechanical = {}   # populated in archetype-driven branch; used for _matched_archetype
+
     # ── Archetype-driven mode ─────────────────────────────────────────────
     if archetype_id is not None:
         manual_id = archetype_id if archetype_id != '__auto__' else None
@@ -180,14 +182,43 @@ def run_separation(pixels: list, width: int, height: int,
                 dna, {'manual_archetype_id': manual_id} if manual_id else None,
             )
 
-        # Archetype owns all algorithm params; mechanical knobs override
+        # Archetype owns all algorithm params; mechanical knobs override only
+        # when explicitly provided — otherwise fall through to archetype's values.
         mechanical = {
-            'density_floor':  options.get('density_floor', 0),
-            'speckle_rescue': options.get('speckle_rescue', 0),
-            'shadow_clamp':   options.get('shadow_clamp', 0),
+            'density_floor':  options.get('density_floor',
+                                          config.get('min_volume', 0) / 100.0),
+            'speckle_rescue': options.get('speckle_rescue',
+                                          config.get('speckle_rescue', 0)),
+            'shadow_clamp':   options.get('shadow_clamp',
+                                          config.get('shadow_clamp', 0)),
         }
+        # Colors: 0 is a sentinel meaning "let archetype decide" — use the
+        # adaptive count the archetype computed from DNA.
+        if target_colors == 0:
+            target_colors = config.get('target_colors', 6)
+
         params = ParameterGenerator.to_engine_options(config, mechanical)
-        params['target_colors'] = target_colors   # user Colors knob wins
+
+        # Apply any user-explicit algorithm overrides from the Advanced panel
+        _ADVANCED_KEYS = [
+            'vibrancy_boost', 'vibrancy_mode',
+            'l_weight', 'c_weight', 'black_bias',
+            'shadow_point',
+            'palette_reduction', 'enable_palette_reduction',
+            'enable_hue_gap_analysis', 'hue_lock_angle',
+            'substrate_mode', 'preserve_white', 'preserve_black',
+            'engine_type', 'color_mode', 'dither_type',
+            'distance_metric', 'centroid_strategy', 'split_mode', 'quantizer',
+            'neutral_sovereignty_threshold', 'chroma_gate',
+            'highlight_threshold', 'highlight_boost',
+            'median_pass', 'detail_rescue',
+            'substrate_tolerance', 'ignore_transparent',
+        ]
+        for key in _ADVANCED_KEYS:
+            if key in options:
+                params[key] = options[key]
+
+        params['target_colors'] = target_colors
         # Map unported engine types to best available equivalent
         _ENGINE_MAP = {'classic': 'balanced'}
         params['engine_type'] = _ENGINE_MAP.get(params.get('engine_type', ''), params.get('engine_type', 'reveal'))
@@ -228,10 +259,43 @@ def run_separation(pixels: list, width: int, height: int,
 
     result = pyreveal.posterize_image(pixels, width, height, target_colors, params)
 
-    # Attach archetype metadata for the UI
+    # Attach archetype metadata for the UI — all control values round-trip
     result['_matched_archetype'] = {
-        'id':   config.get('id', ''),
-        'name': config.get('name', ''),
+        'id':      config.get('id', ''),
+        'name':    config.get('name', ''),
+        'colors':  target_colors,
+        'density': round(mechanical.get('density_floor', 0) * 100.0, 1),
+        'speckle': mechanical.get('speckle_rescue', 0),
+        'clamp':   mechanical.get('shadow_clamp', 0),
+        'vibrancy_boost':           params.get('vibrancy_boost', 1.4),
+        'vibrancy_mode':            params.get('vibrancy_mode', 'moderate'),
+        'l_weight':                 params.get('l_weight', 1.2),
+        'c_weight':                 params.get('c_weight', 2.0),
+        'black_bias':               params.get('black_bias', 3.0),
+        'shadow_point':             params.get('shadow_point', 15),
+        'palette_reduction':        params.get('palette_reduction', 6.0),
+        'enable_palette_reduction': params.get('enable_palette_reduction', True),
+        'enable_hue_gap_analysis':  params.get('enable_hue_gap_analysis', True),
+        'hue_lock_angle':           params.get('hue_lock_angle', 20),
+        'substrate_mode':           params.get('substrate_mode', 'none'),
+        'preserve_white':           params.get('preserve_white', True),
+        'preserve_black':           params.get('preserve_black', True),
+        'preprocessing':            options.get('_preprocessing_intensity', 'off'),
+        'engine_type':                      params.get('engine_type', 'reveal-mk1.5'),
+        'color_mode':                       params.get('color_mode', 'color'),
+        'dither_type':                      params.get('dither_type', 'none'),
+        'distance_metric':                  params.get('distance_metric', 'cie76'),
+        'centroid_strategy':                params.get('centroid_strategy', 'ROBUST_SALIENCY'),
+        'split_mode':                       params.get('split_mode', 'median'),
+        'quantizer':                        params.get('quantizer', 'wu'),
+        'neutral_sovereignty_threshold':    params.get('neutral_sovereignty_threshold', 0),
+        'chroma_gate':                      params.get('chroma_gate', 1.0),
+        'highlight_threshold':              params.get('highlight_threshold', 90),
+        'highlight_boost':                  params.get('highlight_boost', 1.5),
+        'median_pass':                      params.get('median_pass', False),
+        'detail_rescue':                    params.get('detail_rescue', 0),
+        'substrate_tolerance':              params.get('substrate_tolerance', 2.0),
+        'ignore_transparent':               params.get('ignore_transparent', True),
     }
     result['_archetype_scores'] = _get_archetype_scores(config)
 

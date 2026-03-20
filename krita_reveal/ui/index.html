@@ -109,7 +109,7 @@ html, body {
     border-radius: 3px;
     background: #2a2a2a;
     min-height: 34px;
-    max-height: 80px;
+    max-height: 120px;
     overflow-y: auto;
     position: relative;
 }
@@ -157,6 +157,127 @@ html, body {
     color: #999;
 }
 
+.surgeon-swatch.surgeon-deleted {
+    opacity: 0.35;
+    border-color: #663333 !important;
+    background: #2a1e1e !important;
+}
+
+.surgeon-swatch.surgeon-deleted .surgeon-color-block::after {
+    content: '✕';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #ff6666;
+    background: rgba(0,0,0,0.5);
+    border-radius: 2px;
+}
+
+/* ── Color picker ────────────────────────────────────────────────────────── */
+
+#cpicker {
+    display: none;
+    position: fixed;
+    z-index: 200;
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 5px;
+    padding: 8px;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    width: 176px;
+}
+
+#cpicker.visible { display: flex; }
+
+#cp-sl-canvas {
+    width: 160px; height: 120px;
+    border-radius: 3px;
+    cursor: crosshair;
+    display: block;
+}
+
+#cp-hue-canvas {
+    width: 160px; height: 12px;
+    border-radius: 3px;
+    cursor: crosshair;
+    display: block;
+}
+
+.cp-bottom-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#cp-preview {
+    width: 24px; height: 24px;
+    border-radius: 3px;
+    border: 1px solid #555;
+    flex-shrink: 0;
+}
+
+#cp-hex {
+    flex: 1 1 0;
+    background: #1a1a1a;
+    border: 1px solid #555;
+    color: #fff;
+    font-size: 11px;
+    padding: 3px 5px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+#cp-hex:focus { outline: none; border-color: #4da6ff; }
+
+#cp-ok {
+    font-size: 10px;
+    padding: 3px 8px;
+    background: #1a2a3a;
+    border: 1px solid #3070a0;
+    color: #60b0ff;
+    border-radius: 3px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+#cp-ok:hover { background: #203848; }
+
+/* ── Suggested tray ──────────────────────────────────────────────────────── */
+
+.surgeon-suggested-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #555;
+    margin: 4px 0 2px 0;
+}
+
+.surgeon-suggested-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.surgeon-suggested-swatch {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0px 4px;
+    border: 1px solid #444;
+    border-radius: 3px;
+    cursor: default;
+    opacity: 0.75;
+}
+
+.surgeon-suggested-swatch .surgeon-color-block {
+    border-color: rgba(255,255,255,0.15);
+}
+
 /* ── Knobs Panel ─────────────────────────────────────────────────────────── */
 
 #knobs-panel {
@@ -173,7 +294,7 @@ html, body {
     gap: 3px;
     font-size: 11px;
     color: #999;
-    margin-bottom: 1px;
+    margin-bottom: 3px;
 }
 
 .knob-label {
@@ -239,7 +360,7 @@ input[type="range"] {
     outline: none;
     cursor: pointer;
     background: #555;
-    margin-top: 3px;
+    margin-top: 5px;
     margin-bottom: 14px;
     display: block;
 }
@@ -378,6 +499,18 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
 #btn-help-toggle:hover { color: #bbb; border-color: #666; }
 #btn-help-toggle.active { color: #4da6ff; border-color: #4da6ff; }
 
+#btn-reset {
+    background: none;
+    border: 1px solid #444;
+    color: #777;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 4px;
+}
+#btn-reset:hover { color: #bbb; border-color: #666; }
+
 #archetype-bar {
     flex-shrink: 0;
     padding: 4px 7px;
@@ -452,6 +585,10 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
 
         <div id="palette-surgeon">
             <div class="surgeon-grid" id="surgeon-grid"></div>
+            <div id="surgeon-suggested-tray" style="display:none">
+                <div class="surgeon-suggested-label">Suggested</div>
+                <div class="surgeon-suggested-row" id="surgeon-suggested-row"></div>
+            </div>
         </div>
 
     </div>
@@ -462,6 +599,7 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
         <div id="knobs-header">
             <span id="knobs-header-label">Controls</span>
             <button id="btn-help-toggle" title="Toggle help descriptions">?</button>
+            <button id="btn-reset" title="Reset all controls to defaults">Reset</button>
         </div>
 
         <div id="archetype-bar">
@@ -472,27 +610,25 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
 
         <div id="knobs-panel">
 
-            <!-- Screens -->
+            <!-- Primary -->
             <div class="knob-row">
-                <span class="knob-label">Colors</span>
+                <span class="knob-label">Screens</span>
                 <button class="knob-revert" id="revert-colors" title="Revert to default">↻</button>
                 <span class="knob-val" id="v-colors">6</span>
                 <button class="knob-help-btn" data-help="h-colors">?</button>
             </div>
-            <input type="range" id="k-colors" min="2" max="12" value="6" step="1">
-            <span class="knob-help" id="h-colors">Target number of ink colors — the engine may produce a few more or fewer depending on image content and ghost removal.</span>
+            <input type="range" id="k-colors" min="3" max="12" value="6" step="1">
+            <span class="knob-help" id="h-colors">Target number of ink screens — the engine may produce a few more or fewer depending on image content and ghost removal.</span>
 
-            <!-- Ghost Removal -->
             <div class="knob-row">
-                <span class="knob-label">Ghost Removal</span>
+                <span class="knob-label">Ghost Screen Removal</span>
                 <button class="knob-revert" id="revert-density" title="Revert to default">↻</button>
                 <span class="knob-val" id="v-density">0.5%</span>
                 <button class="knob-help-btn" data-help="h-density">?</button>
             </div>
-            <input type="range" id="k-density" min="0" max="5" value="0.5" step="0.5">
+            <input type="range" id="k-density" min="0" max="5" value="0.5" step="0.1">
             <span class="knob-help" id="h-density">Eliminate ghost screens — colors covering less than this % of the image get merged into their nearest neighbor.</span>
 
-            <!-- Dust Removal -->
             <div class="knob-row">
                 <span class="knob-label">Dust Removal</span>
                 <button class="knob-revert" id="revert-speckle" title="Revert to default">↻</button>
@@ -502,16 +638,288 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
             <input type="range" id="k-speckle" min="0" max="30" value="0" step="1">
             <span class="knob-help" id="h-speckle">Remove isolated pixel clusters smaller than this radius — cleans up stray dots that would print as visible defects.</span>
 
-            <!-- Shadow Floor -->
             <div class="knob-row">
                 <span class="knob-label">Shadow Floor</span>
                 <button class="knob-revert" id="revert-clamp" title="Revert to default">↻</button>
                 <span class="knob-val" id="v-clamp">0%</span>
                 <button class="knob-help-btn" data-help="h-clamp">?</button>
             </div>
-            <input type="range" id="k-clamp" min="0" max="40" value="0" step="1">
+            <input type="range" id="k-clamp" min="0" max="40" value="0" step="0.5">
             <span class="knob-help" id="h-clamp">Minimum ink density per screen — faint mask areas below this threshold get boosted to a printable level. 0% = no clamping.</span>
 
+            <div class="knob-row">
+                <span class="knob-label">Mesh Count</span>
+                <button class="knob-revert" id="revert-mesh-size" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-mesh-size">
+                <option value="0">No Mesh (0)</option>
+                <option value="110">110 TPI</option>
+                <option value="156">156 TPI</option>
+                <option value="200">200 TPI</option>
+                <option value="230" selected>230 TPI</option>
+                <option value="280">280 TPI</option>
+                <option value="305">305 TPI</option>
+                <option value="355">355 TPI</option>
+            </select>
+
+            <div class="knob-row">
+                <span class="knob-label">Trap Width</span>
+                <button class="knob-revert" id="revert-trap-size" title="Revert">&#x21bb;</button>
+                <span class="knob-val" id="v-trap-size">0</span>
+            </div>
+            <input type="range" id="k-trap-size" min="0" max="10" value="0" step="1">
+
+            <!-- Method -->
+            <div class="knob-group-label">Method</div>
+            <div class="knob-row">
+                <span class="knob-label">Separation Method</span>
+                <button class="knob-revert" id="revert-engine-type" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-engine-type">
+                <option value="reveal-mk1.5">Standard</option>
+                <option value="distilled">Adaptive</option>
+                <option value="reveal">Hue-Aware</option>
+                <option value="balanced">Fast</option>
+                <option value="stencil">Stencil</option>
+            </select>
+
+            <div class="knob-row">
+                <span class="knob-label">Color Mode</span>
+                <button class="knob-revert" id="revert-color-mode" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-color-mode">
+                <option value="color">Color</option>
+                <option value="bw">B/W</option>
+                <option value="grayscale">Grayscale</option>
+            </select>
+
+            <!-- Print Surface -->
+            <div class="knob-group-label">Print Surface</div>
+            <div class="knob-row">
+                <span class="knob-label">Surface</span>
+                <button class="knob-revert" id="revert-substrate-mode" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-substrate-mode">
+                <option value="auto">Auto</option>
+                <option value="white">White</option>
+                <option value="dark">Dark</option>
+                <option value="black">Black</option>
+                <option value="none" selected>None</option>
+                <option value="transparent">Transparent</option>
+            </select>
+
+            <div class="knob-row">
+                <span class="knob-label">Tolerance</span>
+                <button class="knob-revert" id="revert-substrate-tolerance" title="Revert">&#x21bb;</button>
+                <span class="knob-val" id="v-substrate-tolerance">2.0</span>
+            </div>
+            <input type="range" id="k-substrate-tolerance" min="0" max="5" value="2.0" step="0.5">
+
+            <div class="knob-check-row">
+                <span class="knob-label">Keep White</span>
+                <button class="knob-revert" id="revert-preserve-white" title="Revert">&#x21bb;</button>
+                <input type="checkbox" class="adv-checkbox" id="k-preserve-white" checked>
+            </div>
+            <div class="knob-check-row">
+                <span class="knob-label">Keep Black</span>
+                <button class="knob-revert" id="revert-preserve-black" title="Revert">&#x21bb;</button>
+                <input type="checkbox" class="adv-checkbox" id="k-preserve-black" checked>
+            </div>
+            <div class="knob-check-row">
+                <span class="knob-label">Skip Transparent</span>
+                <button class="knob-revert" id="revert-ignore-transparent" title="Revert">&#x21bb;</button>
+                <input type="checkbox" class="adv-checkbox" id="k-ignore-transparent" checked>
+            </div>
+
+            <!-- Output -->
+            <div class="knob-group-label">Output</div>
+            <div class="knob-row">
+                <span class="knob-label">Dither</span>
+                <button class="knob-revert" id="revert-dither-type" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-dither-type">
+                <option value="none">None</option>
+                <option value="floyd-steinberg">Floyd-Steinberg</option>
+                <option value="bayer">Bayer</option>
+                <option value="atkinson">Atkinson</option>
+                <option value="stucki">Stucki</option>
+            </select>
+
+<details id="advanced-panel">
+    <summary>Advanced</summary>
+
+    <div class="knob-group-label">Algorithm</div>
+    <div class="knob-row">
+        <span class="knob-label">Starting Palette</span>
+        <button class="knob-revert" id="revert-split-mode" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-split-mode">
+        <option value="variance">Detail Priority</option>
+        <option value="median">Color Priority</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Quantizer</span>
+        <button class="knob-revert" id="revert-quantizer" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-quantizer">
+        <option value="wu">Wu (Vibrance)</option>
+        <option value="median_cut">Median Cut</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Color Matching</span>
+        <button class="knob-revert" id="revert-distance-metric" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-distance-metric">
+        <option value="cie76">Standard (CIE76)</option>
+        <option value="cie94">Perceptual (CIE94)</option>
+        <option value="cie2000">Museum Grade (CIE2000)</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Color Selection</span>
+        <button class="knob-revert" id="revert-centroid-strategy" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-centroid-strategy">
+        <option value="SALIENCY">Eye-Catching (Saliency)</option>
+        <option value="ROBUST_SALIENCY">Balanced (Robust Saliency)</option>
+        <option value="VOLUMETRIC">Even Fill (Volumetric)</option>
+        <option value="AVERAGE">Simple Average (Average)</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Pre-Smoothing</span>
+        <button class="knob-revert" id="revert-preprocessing" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-preprocessing">
+        <option value="off" selected>Off</option>
+        <option value="auto">Auto</option>
+        <option value="light">Light</option>
+        <option value="medium">Medium</option>
+        <option value="heavy">Heavy</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Gray Protection</span>
+        <button class="knob-revert" id="revert-neutral-sovereignty" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-neutral-sovereignty">0</span>
+    </div>
+    <input type="range" id="k-neutral-sovereignty" min="0" max="100" value="0" step="1">
+
+    <div class="knob-group-label">Saturation</div>
+    <div class="knob-row">
+        <span class="knob-label">Boost</span>
+        <button class="knob-revert" id="revert-vibrancy-boost" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-vibrancy-boost">1.4</span>
+    </div>
+    <input type="range" id="k-vibrancy-boost" min="0.5" max="3.0" value="1.4" step="0.05">
+
+    <div class="knob-row">
+        <span class="knob-label">Curve</span>
+        <button class="knob-revert" id="revert-vibrancy-mode" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-vibrancy-mode">
+        <option value="linear">Linear</option>
+        <option value="subtle">Subtle</option>
+        <option value="moderate" selected>Moderate</option>
+        <option value="aggressive">Aggressive</option>
+        <option value="exponential">Exponential</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Gate</span>
+        <button class="knob-revert" id="revert-chroma-gate" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-chroma-gate">1.0</span>
+    </div>
+    <input type="range" id="k-chroma-gate" min="1.0" max="3.0" value="1.0" step="0.1">
+
+    <div class="knob-group-label">Color Merging</div>
+    <div class="knob-row">
+        <span class="knob-label">Merge Distance</span>
+        <button class="knob-revert" id="revert-palette-reduction" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-palette-reduction">6.0</span>
+    </div>
+    <input type="range" id="k-palette-reduction" min="2" max="14" value="6.0" step="0.5">
+
+    <div class="knob-check-row">
+        <span class="knob-label">Auto Merge</span>
+        <button class="knob-revert" id="revert-enable-palette-reduction" title="Revert">&#x21bb;</button>
+        <input type="checkbox" class="adv-checkbox" id="k-enable-palette-reduction" checked>
+    </div>
+
+    <div class="knob-check-row">
+        <span class="knob-label">Hue Recovery</span>
+        <button class="knob-revert" id="revert-enable-hue-gap" title="Revert">&#x21bb;</button>
+        <input type="checkbox" class="adv-checkbox" id="k-enable-hue-gap" checked>
+    </div>
+
+    <div class="knob-row">
+        <span class="knob-label">Hue Lock</span>
+        <button class="knob-revert" id="revert-hue-lock-angle" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-hue-lock-angle">20&deg;</span>
+    </div>
+    <input type="range" id="k-hue-lock-angle" min="10" max="60" value="20" step="5">
+
+    <div class="knob-group-label">Color Priority</div>
+    <div class="knob-row">
+        <span class="knob-label">Lightness</span>
+        <button class="knob-revert" id="revert-l-weight" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-l-weight">1.2</span>
+    </div>
+    <input type="range" id="k-l-weight" min="0.5" max="3.0" value="1.2" step="0.1">
+
+    <div class="knob-row">
+        <span class="knob-label">Color Intensity</span>
+        <button class="knob-revert" id="revert-c-weight" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-c-weight">2.0</span>
+    </div>
+    <input type="range" id="k-c-weight" min="0.5" max="5.0" value="2.0" step="0.1">
+
+    <div class="knob-row">
+        <span class="knob-label">Black Pull</span>
+        <button class="knob-revert" id="revert-black-bias" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-black-bias">3.0</span>
+    </div>
+    <input type="range" id="k-black-bias" min="0" max="10" value="3.0" step="0.5">
+
+    <div class="knob-group-label">Tone</div>
+    <div class="knob-row">
+        <span class="knob-label">Highlight</span>
+        <button class="knob-revert" id="revert-highlight-threshold" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-highlight-threshold">90</span>
+    </div>
+    <input type="range" id="k-highlight-threshold" min="80" max="100" value="90" step="1">
+
+    <div class="knob-row">
+        <span class="knob-label">Highlight Boost</span>
+        <button class="knob-revert" id="revert-highlight-boost" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-highlight-boost">1.5</span>
+    </div>
+    <input type="range" id="k-highlight-boost" min="0" max="3.0" value="1.5" step="0.1">
+
+    <div class="knob-row">
+        <span class="knob-label">Shadow Point</span>
+        <button class="knob-revert" id="revert-shadow-point" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-shadow-point">15</span>
+    </div>
+    <input type="range" id="k-shadow-point" min="0" max="30" value="15" step="1">
+
+    <div class="knob-group-label">Detail</div>
+    <div class="knob-check-row">
+        <span class="knob-label">Smoothing</span>
+        <button class="knob-revert" id="revert-median-pass" title="Revert">&#x21bb;</button>
+        <input type="checkbox" class="adv-checkbox" id="k-median-pass">
+    </div>
+
+    <div class="knob-row">
+        <span class="knob-label">Fine Detail</span>
+        <button class="knob-revert" id="revert-detail-rescue" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-detail-rescue">0</span>
+    </div>
+    <input type="range" id="k-detail-rescue" min="0" max="20" value="0" step="1">
+
+</details>
 
         </div><!-- /knobs-panel -->
 
@@ -524,7 +932,15 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
     </div>
 </div>
 
-<input type="color" id="color-picker-input">
+<div id="cpicker">
+    <canvas id="cp-sl-canvas" width="160" height="120"></canvas>
+    <canvas id="cp-hue-canvas" width="160" height="12"></canvas>
+    <div class="cp-bottom-row">
+        <div id="cp-preview"></div>
+        <input type="text" id="cp-hex" maxlength="7" placeholder="#RRGGBB">
+        <button id="cp-ok">OK</button>
+    </div>
+</div>
 
 <script>
 // ── Defaults ────────────────────────────────────────────────────────────────
@@ -533,7 +949,41 @@ const DEFAULTS = {
     'k-density':        0.5,
     'k-speckle':        0,
     'k-clamp':          0,
+    // Advanced
+    'k-vibrancy-boost': 1.4,
+    'k-vibrancy-mode':  'moderate',
+    'k-l-weight':       1.2,
+    'k-c-weight':       2.0,
+    'k-black-bias':     3.0,
+    'k-shadow-point':   15,
+    'k-palette-reduction': 6.0,
+    'k-enable-palette-reduction': true,
+    'k-enable-hue-gap':  true,
+    'k-hue-lock-angle':  20,
+    'k-substrate-mode':  'none',
+    'k-preserve-white':  true,
+    'k-preserve-black':  true,
+    'k-preprocessing':   'off',
+    'k-engine-type':     'reveal-mk1.5',
+    'k-color-mode':      'color',
+    'k-dither-type':     'none',
+    'k-distance-metric': 'cie76',
+    'k-centroid-strategy': 'ROBUST_SALIENCY',
+    'k-split-mode':      'median',
+    'k-quantizer':       'wu',
+    'k-neutral-sovereignty': 0,
+    'k-chroma-gate':     1.0,
+    'k-highlight-threshold': 90,
+    'k-highlight-boost': 1.5,
+    'k-median-pass':     false,
+    'k-detail-rescue':   0,
+    'k-substrate-tolerance': 2.0,
+    'k-ignore-transparent': true,
+    'k-mesh-size':       230,
+    'k-trap-size':       0,
 };
+
+let archetypeDefaults = Object.assign({}, DEFAULTS);
 
 // ── State ────────────────────────────────────────────────────────────────────
 let hasResult      = false;
@@ -557,7 +1007,7 @@ const surgeon       = document.getElementById('palette-surgeon');
 const grid          = document.getElementById('surgeon-grid');
 const btnSep        = document.getElementById('btn-separate');
 const btnBuild      = document.getElementById('btn-build');
-const colorPicker   = document.getElementById('color-picker-input');
+
 const archetypeBar  = document.getElementById('archetype-bar');
 const selArchetype  = document.getElementById('sel-archetype');
 
@@ -567,6 +1017,18 @@ document.getElementById('btn-help-toggle').addEventListener('click', function ()
     this.classList.toggle('active', helpVisible);
     document.querySelectorAll('.knob-help').forEach(el =>
         el.classList.toggle('visible', helpVisible));
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+    archetypeDefaults = Object.assign({}, DEFAULTS);
+    for (const [id, val] of Object.entries(DEFAULTS)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (el.type === 'checkbox') { el.checked = val; el.dispatchEvent(new Event('change')); }
+        else if (el.tagName === 'SELECT') { el.value = String(val); el.dispatchEvent(new Event('change')); }
+        else { el.value = val; el.dispatchEvent(new Event('input')); }
+    }
+    if (hasResult) scheduleRerun();
 });
 
 document.querySelectorAll('.knob-help-btn').forEach(btn => {
@@ -609,7 +1071,7 @@ function initSlider(id, valId, fmt, revertId) {
         const pct = (input.value - input.min) / (input.max - input.min) * 100;
         input.style.background =
             `linear-gradient(to right, #4da6ff ${pct}%, #555 ${pct}%)`;
-        if (revertId) markDirty(revertId, parseFloat(input.value) !== def);
+        if (revertId) markDirty(revertId, parseFloat(input.value) !== (archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def));
     }
 
     input.addEventListener('input', update);
@@ -617,7 +1079,7 @@ function initSlider(id, valId, fmt, revertId) {
     if (revertId) {
         const btn = document.getElementById(revertId);
         if (btn) btn.addEventListener('click', () => {
-            input.value = def;
+            input.value = archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def;
             update();
         });
     }
@@ -631,7 +1093,7 @@ function initSelect(id, revertId) {
     const def = DEFAULTS[id];
 
     function update() {
-        if (revertId) markDirty(revertId, sel.value !== def);
+        if (revertId) markDirty(revertId, sel.value !== String(archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def));
     }
 
     sel.addEventListener('change', update);
@@ -639,7 +1101,7 @@ function initSelect(id, revertId) {
     if (revertId) {
         const btn = document.getElementById(revertId);
         if (btn) btn.addEventListener('click', () => {
-            sel.value = def;
+            sel.value = String(archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def);
             update();
         });
     }
@@ -653,7 +1115,7 @@ function initCheckbox(id, revertId) {
     const def = DEFAULTS[id];
 
     function update() {
-        if (revertId) markDirty(revertId, chk.checked !== def);
+        if (revertId) markDirty(revertId, chk.checked !== (archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def));
     }
 
     chk.addEventListener('change', update);
@@ -661,7 +1123,7 @@ function initCheckbox(id, revertId) {
     if (revertId) {
         const btn = document.getElementById(revertId);
         if (btn) btn.addEventListener('click', () => {
-            chk.checked = def;
+            chk.checked = (archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def);
             update();
         });
     }
@@ -674,6 +1136,119 @@ initSlider('k-colors',       'v-colors',       v => Math.round(v),           're
 initSlider('k-density',      'v-density',      v => v.toFixed(1) + '%',      'revert-density');
 initSlider('k-speckle',      'v-speckle',      v => Math.round(v) + ' px',   'revert-speckle');
 initSlider('k-clamp',        'v-clamp',        v => Math.round(v) + '%',     'revert-clamp');
+
+// Advanced controls
+initSlider('k-vibrancy-boost',     'v-vibrancy-boost',     v => v.toFixed(1),            'revert-vibrancy-boost');
+initSlider('k-l-weight',           'v-l-weight',           v => v.toFixed(1),            'revert-l-weight');
+initSlider('k-c-weight',           'v-c-weight',           v => v.toFixed(1),            'revert-c-weight');
+initSlider('k-black-bias',         'v-black-bias',         v => v.toFixed(1),            'revert-black-bias');
+initSlider('k-shadow-point',       'v-shadow-point',       v => Math.round(v),           'revert-shadow-point');
+initSlider('k-palette-reduction',  'v-palette-reduction',  v => v.toFixed(1),            'revert-palette-reduction');
+initSlider('k-hue-lock-angle',     'v-hue-lock-angle',     v => Math.round(v) + '\u00B0', 'revert-hue-lock-angle');
+initSelect('k-vibrancy-mode',      'revert-vibrancy-mode');
+initSelect('k-substrate-mode',     'revert-substrate-mode');
+initSelect('k-preprocessing',      'revert-preprocessing');
+initCheckbox('k-enable-palette-reduction', 'revert-enable-palette-reduction');
+initCheckbox('k-enable-hue-gap',           'revert-enable-hue-gap');
+initCheckbox('k-preserve-white',           'revert-preserve-white');
+initCheckbox('k-preserve-black',           'revert-preserve-black');
+initSelect('k-engine-type',      'revert-engine-type');
+initSelect('k-color-mode',       'revert-color-mode');
+initSelect('k-dither-type',      'revert-dither-type');
+initSelect('k-distance-metric',  'revert-distance-metric');
+initSelect('k-centroid-strategy','revert-centroid-strategy');
+initSelect('k-split-mode',       'revert-split-mode');
+initSelect('k-quantizer',        'revert-quantizer');
+initSelect('k-mesh-size',        'revert-mesh-size');
+initSlider('k-neutral-sovereignty', 'v-neutral-sovereignty', v => Math.round(v),     'revert-neutral-sovereignty');
+initSlider('k-chroma-gate',         'v-chroma-gate',         v => v.toFixed(1),       'revert-chroma-gate');
+initSlider('k-highlight-threshold', 'v-highlight-threshold', v => Math.round(v),     'revert-highlight-threshold');
+initSlider('k-highlight-boost',     'v-highlight-boost',     v => v.toFixed(1),       'revert-highlight-boost');
+initSlider('k-detail-rescue',       'v-detail-rescue',       v => Math.round(v),     'revert-detail-rescue');
+initSlider('k-substrate-tolerance', 'v-substrate-tolerance', v => v.toFixed(1),       'revert-substrate-tolerance');
+initSlider('k-trap-size',           'v-trap-size',           v => Math.round(v),     'revert-trap-size');
+initCheckbox('k-median-pass',         'revert-median-pass');
+initCheckbox('k-ignore-transparent',  'revert-ignore-transparent');
+
+// ── Programmatic setters (fire 'input' only — no 'change', no scheduleRerun) ──
+function setSlider(id, value) {
+    const slider = document.getElementById(id);
+    if (!slider) return;
+    slider.value = value;
+    slider.dispatchEvent(new Event('input'));
+}
+
+function setSelect(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = String(value);
+}
+
+function setCheckbox(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!value;
+}
+
+// ── Apply matched archetype values to all controls ───────────────────────────
+function applyMatchedArchetype(ma) {
+    if (!ma) return;
+
+    const MA_TO_UI = {
+        colors: 'k-colors', density: 'k-density', speckle: 'k-speckle', clamp: 'k-clamp',
+        vibrancy_boost: 'k-vibrancy-boost', vibrancy_mode: 'k-vibrancy-mode',
+        l_weight: 'k-l-weight', c_weight: 'k-c-weight', black_bias: 'k-black-bias',
+        shadow_point: 'k-shadow-point', palette_reduction: 'k-palette-reduction',
+        enable_palette_reduction: 'k-enable-palette-reduction',
+        enable_hue_gap_analysis: 'k-enable-hue-gap', hue_lock_angle: 'k-hue-lock-angle',
+        substrate_mode: 'k-substrate-mode', preserve_white: 'k-preserve-white',
+        preserve_black: 'k-preserve-black', preprocessing: 'k-preprocessing',
+        engine_type: 'k-engine-type', color_mode: 'k-color-mode',
+        dither_type: 'k-dither-type', distance_metric: 'k-distance-metric',
+        centroid_strategy: 'k-centroid-strategy', split_mode: 'k-split-mode',
+        quantizer: 'k-quantizer', neutral_sovereignty_threshold: 'k-neutral-sovereignty',
+        chroma_gate: 'k-chroma-gate', highlight_threshold: 'k-highlight-threshold',
+        highlight_boost: 'k-highlight-boost', median_pass: 'k-median-pass',
+        detail_rescue: 'k-detail-rescue', substrate_tolerance: 'k-substrate-tolerance',
+        ignore_transparent: 'k-ignore-transparent',
+    };
+    for (const [mk, uid] of Object.entries(MA_TO_UI)) {
+        if (ma[mk] !== undefined) archetypeDefaults[uid] = ma[mk];
+    }
+
+    if (ma.colors  !== undefined) setSlider('k-colors',  ma.colors);
+    if (ma.density !== undefined) setSlider('k-density', ma.density);
+    if (ma.speckle !== undefined) setSlider('k-speckle', ma.speckle);
+    if (ma.clamp   !== undefined) setSlider('k-clamp',   ma.clamp);
+    // Advanced
+    if (ma.vibrancy_boost           !== undefined) setSlider('k-vibrancy-boost',    ma.vibrancy_boost);
+    if (ma.vibrancy_mode            !== undefined) setSelect('k-vibrancy-mode',     ma.vibrancy_mode);
+    if (ma.l_weight                 !== undefined) setSlider('k-l-weight',          ma.l_weight);
+    if (ma.c_weight                 !== undefined) setSlider('k-c-weight',          ma.c_weight);
+    if (ma.black_bias               !== undefined) setSlider('k-black-bias',        ma.black_bias);
+    if (ma.shadow_point             !== undefined) setSlider('k-shadow-point',      ma.shadow_point);
+    if (ma.palette_reduction        !== undefined) setSlider('k-palette-reduction', ma.palette_reduction);
+    if (ma.enable_palette_reduction !== undefined) setCheckbox('k-enable-palette-reduction', ma.enable_palette_reduction);
+    if (ma.enable_hue_gap_analysis  !== undefined) setCheckbox('k-enable-hue-gap',           ma.enable_hue_gap_analysis);
+    if (ma.hue_lock_angle           !== undefined) setSlider('k-hue-lock-angle',    ma.hue_lock_angle);
+    if (ma.substrate_mode           !== undefined) setSelect('k-substrate-mode',    ma.substrate_mode);
+    if (ma.preserve_white           !== undefined) setCheckbox('k-preserve-white',  ma.preserve_white);
+    if (ma.preserve_black           !== undefined) setCheckbox('k-preserve-black',  ma.preserve_black);
+    if (ma.preprocessing            !== undefined) setSelect('k-preprocessing',     ma.preprocessing);
+    if (ma.engine_type                 !== undefined) setSelect('k-engine-type',          ma.engine_type);
+    if (ma.color_mode                  !== undefined) setSelect('k-color-mode',            ma.color_mode);
+    if (ma.dither_type                 !== undefined) setSelect('k-dither-type',           ma.dither_type);
+    if (ma.distance_metric             !== undefined) setSelect('k-distance-metric',       ma.distance_metric);
+    if (ma.centroid_strategy           !== undefined) setSelect('k-centroid-strategy',     ma.centroid_strategy);
+    if (ma.split_mode                  !== undefined) setSelect('k-split-mode',            ma.split_mode);
+    if (ma.quantizer                   !== undefined) setSelect('k-quantizer',             ma.quantizer);
+    if (ma.neutral_sovereignty_threshold !== undefined) setSlider('k-neutral-sovereignty', ma.neutral_sovereignty_threshold);
+    if (ma.chroma_gate                 !== undefined) setSlider('k-chroma-gate',           ma.chroma_gate);
+    if (ma.highlight_threshold         !== undefined) setSlider('k-highlight-threshold',   ma.highlight_threshold);
+    if (ma.highlight_boost             !== undefined) setSlider('k-highlight-boost',       ma.highlight_boost);
+    if (ma.median_pass                 !== undefined) setCheckbox('k-median-pass',         ma.median_pass);
+    if (ma.detail_rescue               !== undefined) setSlider('k-detail-rescue',         ma.detail_rescue);
+    if (ma.substrate_tolerance         !== undefined) setSlider('k-substrate-tolerance',   ma.substrate_tolerance);
+    if (ma.ignore_transparent          !== undefined) setCheckbox('k-ignore-transparent',  ma.ignore_transparent);
+}
 
 // ── Archetype selector ───────────────────────────────────────────────────────
 let archetypeColors = {};  // id → max_colors
@@ -702,31 +1277,21 @@ function renderArchetypes(archetypes, matchedId) {
 selArchetype.addEventListener('change', () => {
     if (!hasResult || isRunning) return;
 
-    // Propagate archetype's recommended color count to the slider
     const archId = selArchetype.value;
-    if (archId !== '__auto__' && archetypeColors[archId]) {
-        const slider = document.getElementById('k-colors');
-        slider.value = archetypeColors[archId];
-        slider.dispatchEvent(new Event('input'));  // update display, not scheduleRerun
-    }
-
     isRunning = true;
     hasResult = false;
     previewCont.classList.remove('has-image');
     grid.innerHTML = '';
     paletteData = [];
+    renderSuggestions([]);
     surgeon.classList.remove('visible');
 
+    // Omit all four knobs — new archetype drives colors + mechanical from its config.
+    // All sliders are updated from matched_archetype once the result arrives.
     fetch('/api/rerun', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            archetype_id: archId,
-            colors:  parseFloat(document.getElementById('k-colors').value),
-            density: parseFloat(document.getElementById('k-density').value),
-            speckle: parseFloat(document.getElementById('k-speckle').value),
-            clamp:   parseFloat(document.getElementById('k-clamp').value),
-        }),
+        body: JSON.stringify({ archetype_id: archId }),
     }).then(() => {
         if (pollTimer) clearTimeout(pollTimer);
         pollTimer = setTimeout(poll, 300);
@@ -740,6 +1305,38 @@ function collectParams() {
         density: parseFloat(document.getElementById('k-density').value),
         speckle: parseFloat(document.getElementById('k-speckle').value),
         clamp:   parseFloat(document.getElementById('k-clamp').value),
+        // Advanced
+        vibrancy_boost:           parseFloat(document.getElementById('k-vibrancy-boost').value),
+        vibrancy_mode:            document.getElementById('k-vibrancy-mode').value,
+        l_weight:                 parseFloat(document.getElementById('k-l-weight').value),
+        c_weight:                 parseFloat(document.getElementById('k-c-weight').value),
+        black_bias:               parseFloat(document.getElementById('k-black-bias').value),
+        shadow_point:             parseFloat(document.getElementById('k-shadow-point').value),
+        palette_reduction:        parseFloat(document.getElementById('k-palette-reduction').value),
+        enable_palette_reduction: document.getElementById('k-enable-palette-reduction').checked,
+        enable_hue_gap_analysis:  document.getElementById('k-enable-hue-gap').checked,
+        hue_lock_angle:           parseFloat(document.getElementById('k-hue-lock-angle').value),
+        substrate_mode:           document.getElementById('k-substrate-mode').value,
+        preserve_white:           document.getElementById('k-preserve-white').checked,
+        preserve_black:           document.getElementById('k-preserve-black').checked,
+        preprocessing:            document.getElementById('k-preprocessing').value,
+        engine_type:              document.getElementById('k-engine-type').value,
+        color_mode:               document.getElementById('k-color-mode').value,
+        dither_type:              document.getElementById('k-dither-type').value,
+        distance_metric:          document.getElementById('k-distance-metric').value,
+        centroid_strategy:        document.getElementById('k-centroid-strategy').value,
+        split_mode:               document.getElementById('k-split-mode').value,
+        quantizer:                document.getElementById('k-quantizer').value,
+        neutral_sovereignty_threshold: parseFloat(document.getElementById('k-neutral-sovereignty').value),
+        chroma_gate:              parseFloat(document.getElementById('k-chroma-gate').value),
+        highlight_threshold:      parseFloat(document.getElementById('k-highlight-threshold').value),
+        highlight_boost:          parseFloat(document.getElementById('k-highlight-boost').value),
+        median_pass:              document.getElementById('k-median-pass').checked,
+        detail_rescue:            parseFloat(document.getElementById('k-detail-rescue').value),
+        substrate_tolerance:      parseFloat(document.getElementById('k-substrate-tolerance').value),
+        ignore_transparent:       document.getElementById('k-ignore-transparent').checked,
+        mesh_size:                parseInt(document.getElementById('k-mesh-size').value),
+        trap_size:                parseFloat(document.getElementById('k-trap-size').value),
     };
 }
 
@@ -787,7 +1384,7 @@ function renderSwatches(palette) {
         const sw = document.createElement('div');
         sw.className = 'surgeon-swatch';
         sw.dataset.idx = i;
-        sw.title = `${c.hex}  ${c.pct}%\nClick: solo  Alt+click: delete  Dbl-click: recolor`;
+        sw.title = `${c.hex}  ${c.pct}%\nClick: solo  Alt+click: delete  Double-click: edit color`;
 
         const block = document.createElement('div');
         block.className = 'surgeon-color-block';
@@ -833,10 +1430,8 @@ function onSwatchClick(e) {
 function onSwatchDblClick(e) {
     const idx = getSwatchIdx(e);
     if (idx < 0) return;
-    colorPickerIdx = idx;
     const c = paletteData[idx];
-    colorPicker.value = c.hex;
-    colorPicker.click();
+    cpOpen(idx, c.hex, e.target.closest('.surgeon-swatch'));
 }
 
 function onSwatchAltClick(e) {
@@ -844,6 +1439,9 @@ function onSwatchAltClick(e) {
     const idx = getSwatchIdx(e);
     if (idx < 0) return;
     e.preventDefault();
+    // Mark visually as deleted immediately, before server responds
+    const sw = e.target.closest('.surgeon-swatch');
+    if (sw) sw.classList.add('surgeon-deleted');
     fetch('/api/delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -857,22 +1455,196 @@ function onSwatchAltClick(e) {
     });
 }
 
-colorPicker.addEventListener('change', () => {
-    if (colorPickerIdx < 0) return;
-    const hex = colorPicker.value;
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
+// ── HSV Color Picker ──────────────────────────────────────────────────────────
+const cpicker   = document.getElementById('cpicker');
+const cpSL      = document.getElementById('cp-sl-canvas');
+const cpHue     = document.getElementById('cp-hue-canvas');
+const cpPreview = document.getElementById('cp-preview');
+const cpHex     = document.getElementById('cp-hex');
+const cpOk      = document.getElementById('cp-ok');
+const ctxSL     = cpSL.getContext('2d');
+const ctxHue    = cpHue.getContext('2d');
+
+let cpH = 0, cpS = 1, cpV = 1;  // current HSV state
+
+function hsvToRgb(h, s, v) {
+    const i = Math.floor(h / 60) % 6;
+    const f = h / 60 - Math.floor(h / 60);
+    const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+    const [r, g, b] = [[v,t,p],[q,v,p],[p,v,t],[p,q,v],[t,p,v],[v,p,q]][i];
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+}
+
+function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r,g,b), min = Math.min(r,g,b), d = max - min;
+    let h = 0;
+    if (d) {
+        if (max === r) h = ((g - b) / d + 6) % 6;
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+    }
+    return [h, max ? d / max : 0, max];
+}
+
+function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function drawSL() {
+    const w = cpSL.width, h = cpSL.height;
+    // White→Hue horizontal gradient
+    const gradH = ctxSL.createLinearGradient(0, 0, w, 0);
+    gradH.addColorStop(0, '#fff');
+    gradH.addColorStop(1, `hsl(${cpH},100%,50%)`);
+    ctxSL.fillStyle = gradH;
+    ctxSL.fillRect(0, 0, w, h);
+    // Transparent→Black vertical overlay
+    const gradV = ctxSL.createLinearGradient(0, 0, 0, h);
+    gradV.addColorStop(0, 'rgba(0,0,0,0)');
+    gradV.addColorStop(1, 'rgba(0,0,0,1)');
+    ctxSL.fillStyle = gradV;
+    ctxSL.fillRect(0, 0, w, h);
+    // Cursor
+    const cx = cpS * w, cy = (1 - cpV) * h;
+    ctxSL.beginPath();
+    ctxSL.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctxSL.strokeStyle = cpV > 0.5 ? '#000' : '#fff';
+    ctxSL.lineWidth = 1.5;
+    ctxSL.stroke();
+}
+
+function drawHue() {
+    const w = cpHue.width, h = cpHue.height;
+    const grad = ctxHue.createLinearGradient(0, 0, w, 0);
+    for (let i = 0; i <= 6; i++) grad.addColorStop(i / 6, `hsl(${i * 60},100%,50%)`);
+    ctxHue.fillStyle = grad;
+    ctxHue.fillRect(0, 0, w, h);
+    // Cursor
+    const cx = (cpH / 360) * w;
+    ctxHue.fillStyle = '#fff';
+    ctxHue.fillRect(cx - 2, 0, 4, h);
+    ctxHue.strokeStyle = '#000';
+    ctxHue.lineWidth = 0.5;
+    ctxHue.strokeRect(cx - 2, 0, 4, h);
+}
+
+function cpUpdate(skipHex) {
+    drawSL();
+    drawHue();
+    const [r, g, b] = hsvToRgb(cpH, cpS, cpV);
+    const hex = rgbToHex(r, g, b);
+    cpPreview.style.background = hex;
+    if (!skipHex) cpHex.value = hex;
+}
+
+function cpPickSL(e) {
+    const rect = cpSL.getBoundingClientRect();
+    cpS = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    cpV = Math.max(0, Math.min(1, 1 - (e.clientY - rect.top) / rect.height));
+    cpUpdate();
+}
+
+function cpPickHue(e) {
+    const rect = cpHue.getBoundingClientRect();
+    cpH = Math.max(0, Math.min(359.9, ((e.clientX - rect.left) / rect.width) * 360));
+    cpUpdate();
+}
+
+// Drag on SL canvas
+let draggingSL = false, draggingHue = false;
+cpSL.addEventListener('mousedown', e => { draggingSL = true; cpPickSL(e); });
+cpHue.addEventListener('mousedown', e => { draggingHue = true; cpPickHue(e); });
+document.addEventListener('mousemove', e => {
+    if (draggingSL) cpPickSL(e);
+    if (draggingHue) cpPickHue(e);
+});
+document.addEventListener('mouseup', () => { draggingSL = false; draggingHue = false; });
+
+cpHex.addEventListener('input', () => {
+    let v = cpHex.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+        const r = parseInt(v.slice(1,3),16), g = parseInt(v.slice(3,5),16), b = parseInt(v.slice(5,7),16);
+        [cpH, cpS, cpV] = rgbToHsv(r, g, b);
+        cpUpdate(true);
+    }
+});
+
+cpHex.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); cpApply(); }
+    if (e.key === 'Escape') { e.preventDefault(); cpClose(); }
+});
+
+function cpOpen(idx, hex, anchorEl) {
+    colorPickerIdx = idx;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    [cpH, cpS, cpV] = rgbToHsv(r, g, b);
+    cpUpdate();
+
+    const rect = anchorEl ? anchorEl.getBoundingClientRect() : {left:40, bottom:40};
+    const top = rect.bottom + 4;
+    const left = Math.min(rect.left, window.innerWidth - 192);
+    cpicker.style.left = left + 'px';
+    cpicker.style.top  = top + 'px';
+    cpicker.classList.add('visible');
+}
+
+function cpClose() {
+    cpicker.classList.remove('visible');
+    colorPickerIdx = -1;
+}
+
+function cpApply() {
+    if (colorPickerIdx < 0) { cpClose(); return; }
+    const [r, g, b] = hsvToRgb(cpH, cpS, cpV);
+    const idx = colorPickerIdx;
+    cpClose();
     fetch('/api/override', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({idx: colorPickerIdx, r, g, b}),
-    }).then(r => r.json()).then(data => {
+        body: JSON.stringify({idx, r, g, b}),
+    }).then(res => res.json()).then(data => {
         if (data.palette) renderSwatches(data.palette);
         refreshPreview('post');
-        colorPickerIdx = -1;
     });
+}
+
+cpOk.addEventListener('click', cpApply);
+
+document.addEventListener('mousedown', e => {
+    if (cpicker.classList.contains('visible') && !cpicker.contains(e.target)) cpClose();
 });
+
+// ── Suggested tray ───────────────────────────────────────────────────────────
+function renderSuggestions(suggestions) {
+    const tray = document.getElementById('surgeon-suggested-tray');
+    const row  = document.getElementById('surgeon-suggested-row');
+    if (!suggestions || suggestions.length === 0) {
+        tray.style.display = 'none';
+        return;
+    }
+    row.innerHTML = '';
+    suggestions.forEach(s => {
+        const sw = document.createElement('div');
+        sw.className = 'surgeon-suggested-swatch';
+        sw.title = `${s.hex}\n${s.reason}`;
+
+        const block = document.createElement('div');
+        block.className = 'surgeon-color-block';
+        block.style.background = s.hex;
+
+        const score = document.createElement('span');
+        score.className = 'surgeon-pct';
+        score.textContent = Math.round(s.score);
+
+        sw.appendChild(block);
+        sw.appendChild(score);
+        row.appendChild(sw);
+    });
+    tray.style.display = 'block';
+}
 
 // ── Status ───────────────────────────────────────────────────────────────────
 function setStatus(msg, isError) {
@@ -896,8 +1668,10 @@ function poll() {
                 previewCont.classList.add('has-image');
                 refreshPreview('post');
                 renderSwatches(data.palette);
+                renderSuggestions(data.suggestions);
                 if (data.archetypes && data.archetypes.length)
                     renderArchetypes(data.archetypes, data.matched_archetype_id);
+                applyMatchedArchetype(data.matched_archetype);
                 btnBuild.style.display = 'block';
             } else if (data.status === 'error') {
                 isRunning = false;
@@ -913,6 +1687,7 @@ function startSeparation() {
     hasResult = false; selectedIdx = -1; showingOrig = false;
     grid.innerHTML = '';
     paletteData = [];
+    renderSuggestions([]);
     surgeon.classList.remove('visible');
     btnBuild.style.display = 'none';
     previewCont.classList.remove('has-image');
@@ -933,23 +1708,20 @@ function scheduleRerun() {
     if (rerunTimer) clearTimeout(rerunTimer);
     rerunTimer = setTimeout(() => {
         rerunTimer = null;
-        if (!hasResult) return;   // wait for initial separation to complete
+        if (!hasResult) return;
         const archId = selArchetype.value || '__auto__';
         isRunning = true;
         hasResult = false;
         previewCont.classList.remove('has-image');
         grid.innerHTML = ''; paletteData = [];
+        renderSuggestions([]);
         surgeon.classList.remove('visible');
+        const p = collectParams();
+        p.archetype_id = archId;
         fetch('/api/rerun', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                archetype_id: archId,
-                colors:  parseFloat(document.getElementById('k-colors').value),
-                density: parseFloat(document.getElementById('k-density').value),
-                speckle: parseFloat(document.getElementById('k-speckle').value),
-                clamp:   parseFloat(document.getElementById('k-clamp').value),
-            }),
+            body: JSON.stringify(p),
         }).then(() => {
             if (pollTimer) clearTimeout(pollTimer);
             pollTimer = setTimeout(poll, 300);
@@ -957,7 +1729,19 @@ function scheduleRerun() {
     }, 700);
 }
 
-['k-colors', 'k-density', 'k-speckle', 'k-clamp'].forEach(id => {
+['k-colors', 'k-density', 'k-speckle', 'k-clamp',
+ 'k-vibrancy-boost', 'k-l-weight', 'k-c-weight', 'k-black-bias',
+ 'k-shadow-point', 'k-palette-reduction', 'k-hue-lock-angle',
+ 'k-neutral-sovereignty', 'k-chroma-gate', 'k-highlight-threshold', 'k-highlight-boost',
+ 'k-detail-rescue', 'k-substrate-tolerance', 'k-trap-size'].forEach(id => {
+    document.getElementById(id).addEventListener('change', scheduleRerun);
+});
+['k-vibrancy-mode', 'k-substrate-mode', 'k-preprocessing',
+ 'k-enable-palette-reduction', 'k-enable-hue-gap',
+ 'k-preserve-white', 'k-preserve-black',
+ 'k-engine-type', 'k-color-mode', 'k-dither-type', 'k-distance-metric',
+ 'k-centroid-strategy', 'k-split-mode', 'k-quantizer', 'k-mesh-size',
+ 'k-median-pass', 'k-ignore-transparent'].forEach(id => {
     document.getElementById(id).addEventListener('change', scheduleRerun);
 });
 
@@ -990,8 +1774,10 @@ fetch('/api/status')
             previewCont.classList.add('has-image');
             refreshPreview('post');
             renderSwatches(data.palette);
+            renderSuggestions(data.suggestions);
             if (data.archetypes && data.archetypes.length)
                 renderArchetypes(data.archetypes, data.matched_archetype_id);
+            applyMatchedArchetype(data.matched_archetype);
             btnBuild.style.display = 'block';
         } else if (data.status === 'idle') {
             // Auto-trigger on first open
