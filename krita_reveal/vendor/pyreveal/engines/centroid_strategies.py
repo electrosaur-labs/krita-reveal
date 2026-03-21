@@ -5,14 +5,14 @@ Each strategy determines how a representative colour is chosen from a
 bucket of Lab pixel samples.  Input data is always in perceptual Lab space
 (L: 0-100, a/b: -128..+127) regardless of source bit depth.
 
-weights dict keys:
-  l_weight:     Lightness priority (default 1.1)
-  c_weight:     Chroma priority (default 2.0)
-  black_bias:   Black-pixel score boost (default 5.0)
-  bit_depth:    8 or 16 (16-bit uses tighter thresholds)
-  vibrancy_mode: 'subtle'|'moderate'|'aggressive'|'exponential'
-  vibrancy_boost: chroma power/scale factor (default 2.2)
-  is_vibrant:   bool — uses 2% slice instead of 5%
+weights dict keys (camelCase — matches JS CentroidStrategies and _build_tuning_from_config):
+  lWeight:      Lightness priority (default 1.0)
+  cWeight:      Chroma priority (default 1.0)
+  blackBias:    Black-pixel score boost (default 5.0)
+  bitDepth:     8 or 16 (16-bit uses tighter thresholds)
+  vibrancyMode: 'subtle'|'moderate'|'aggressive'|'exponential'
+  vibrancyBoost: chroma power/scale factor (default 2.2)
+  isVibrant:    bool — uses 2% slice instead of 5%
 """
 
 from __future__ import annotations
@@ -32,24 +32,35 @@ def saliency(bucket: list, weights: dict | None = None) -> dict:
     if weights is None:
         weights = {}
 
-    black_bias     = weights.get('black_bias', 5.0)
-    is_16bit       = weights.get('bit_depth', 8) == 16
-    vibrancy_mode  = weights.get('vibrancy_mode', 'aggressive')
-    vibrancy_boost = weights.get('vibrancy_boost', 2.2)
-    l_weight       = weights.get('l_weight', 1.0)
-    c_weight       = weights.get('c_weight', 1.0)
+    black_bias     = weights.get('blackBias', 5.0)
+    is_16bit       = weights.get('bitDepth', 8) == 16
+    vibrancy_mode  = weights.get('vibrancyMode', 'aggressive')
+    vibrancy_boost = weights.get('vibrancyBoost', 2.2)
+    l_weight       = weights.get('lWeight', 1.0)
+    c_weight       = weights.get('cWeight', 1.0)
+
+    # Step 1: Normalize precision to 4dp — eliminates JS Float32Array vs Python float64
+    # divergence so every downstream sort and comparison is deterministic across platforms.
+    def _norm(p):
+        return {
+            'L': round(p['L'], 4),
+            'a': round(p['a'], 4),
+            'b': round(p['b'], 4),
+            'count': p.get('count', 1),
+        }
+    normalized = [_norm(p) for p in bucket]
 
     # Achromatic exclusion wall (only when c_weight >= 2.5)
     achromatic_floor = 15.0 if c_weight >= 2.5 else 0.0
     eligible = (
-        [p for p in bucket if math.sqrt(p['a'] ** 2 + p['b'] ** 2) >= achromatic_floor]
-        if achromatic_floor > 0 else bucket
+        [p for p in normalized if math.sqrt(p['a'] ** 2 + p['b'] ** 2) >= achromatic_floor]
+        if achromatic_floor > 0 else normalized
     )
 
     # Fallback to volumetric average if all pixels are achromatic
     if not eligible:
         total_w = sum_l = sum_a = sum_b = 0
-        for p in bucket:
+        for p in normalized:
             w = p.get('count', 1)
             sum_l += p['L'] * w; sum_a += p['a'] * w; sum_b += p['b'] * w
             total_w += w
@@ -78,7 +89,7 @@ def saliency(bucket: list, weights: dict | None = None) -> dict:
 
     scored.sort(key=lambda x: -x[0])
 
-    slice_pct = 0.02 if weights.get('is_vibrant') else 0.05
+    slice_pct = 0.02 if weights.get('isVibrant') else 0.05
     sample = max(1, min(50, int(len(scored) * slice_pct)))
 
     is_aggressive = vibrancy_mode == 'aggressive'
@@ -113,10 +124,10 @@ def robust_saliency(bucket: list, weights: dict | None = None) -> dict:
     if weights is None:
         weights = {}
 
-    black_bias     = weights.get('black_bias', 5.0)
-    is_16bit       = weights.get('bit_depth', 8) == 16
-    c_weight       = weights.get('c_weight', 1.0)
-    vibrancy_boost = weights.get('vibrancy_boost', 1.0)
+    black_bias     = weights.get('blackBias', 5.0)
+    is_16bit       = weights.get('bitDepth', 8) == 16
+    c_weight       = weights.get('cWeight', 1.0)
+    vibrancy_boost = weights.get('vibrancyBoost', 1.0)
 
     # P90 chroma winsorisation: cap extreme chroma while preserving hue angle
     chromas = [math.sqrt(p['a'] ** 2 + p['b'] ** 2) for p in bucket]

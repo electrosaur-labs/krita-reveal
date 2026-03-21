@@ -124,7 +124,7 @@ class PeakFinder:
 
     def _bucket_key(self, L: float, a: float, b: float) -> tuple:
         g = self.grid_size
-        return (int(L / g), int(a / g), int(b / g))
+        return (math.floor(L / g), math.floor(a / g), math.floor(b / g))
 
     def _hue_sector(self, a: float, b: float) -> int:
         hue = math.atan2(b, a) * 180.0 / math.pi

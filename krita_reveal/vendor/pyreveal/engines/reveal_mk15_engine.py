@@ -61,17 +61,19 @@ def posterize_mk15(pixels, width: int, height: int,
     Returns the same dict schema as the Mk 1.0 engine.
     """
     distance_metric          = options.get('distance_metric', 'cie76')
-    is_legacy_v1             = distance_metric == 'cie76'
 
     snap_threshold           = options.get('snap_threshold', 8.0)
     enable_palette_reduction = options.get('enable_palette_reduction', True)
     palette_reduction        = options.get('palette_reduction', 8.0)
-    density_floor            = options.get('density_floor', 0.005)
 
-    if is_legacy_v1:
-        snap_threshold           = 0.0
-        enable_palette_reduction = False
-        density_floor            = 0.0
+    # density_floor: explicit key wins; fall back to min_volume (pct→fraction)
+    _min_vol      = options.get('min_volume')
+    density_floor = options.get('density_floor',
+                                (_min_vol / 100.0) if _min_vol is not None else 0.005)
+
+    # CIE76 mode: disable perceptual snap (JS uses no snap for cie76 archetypes)
+    if distance_metric == 'cie76':
+        snap_threshold = 0.0
 
     grayscale_only      = options.get('grayscale_only', False)
     preserve_white      = options.get('preserve_white', False)
@@ -97,12 +99,10 @@ def posterize_mk15(pixels, width: int, height: int,
         L = pixels[i] / L_SCALE
         a = (pixels[i + 1] - LAB16_AB_NEUTRAL) / AB_SCALE
         b = (pixels[i + 2] - LAB16_AB_NEUTRAL) / AB_SCALE
-
         if L < shadow_threshold:
             L, a, b = 0.0, 0.0, 0.0
         elif L > hi_threshold:
             L, a, b = 100.0, 0.0, 0.0
-
         lab_pixels.extend([L, a, b])
 
     # Optional: hard chroma gate
