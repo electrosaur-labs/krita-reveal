@@ -290,8 +290,12 @@ def run_separation(pixels: list, width: int, height: int,
 
         # ── Pseudo-archetype behaviour overrides ──────────────────────────
         if manual_id == 'dynamic_interpolator':
-            # Chameleon: interpolator already set engine_type='distilled'; just ensure it
-            params['engine_type'] = 'distilled'
+            # Chameleon: interpolator already set engine_type='distilled'; just ensure it.
+            # Disable mk1.5-specific extras (peak injection, hue gap) — the JS distilled
+            # engine uses over-quantize + FPS instead; these would inflate color count.
+            params['engine_type']              = 'distilled'
+            params['enable_hue_gap_analysis']  = False
+            params['peak_finder_max_peaks']    = 0
         elif manual_id == 'distilled':
             params['engine_type']             = 'distilled'
             params['enable_palette_reduction'] = False
@@ -300,6 +304,8 @@ def run_separation(pixels: list, width: int, height: int,
             params['engine_type']             = 'distilled'
             params['centroid_strategy']        = 'SALIENCY'
             params['enable_palette_reduction'] = False
+            params['enable_hue_gap_analysis']  = False
+            params['peak_finder_max_peaks']    = 0
             mechanical['density_floor']        = options.get('density_floor', 0)
             mechanical['speckle_rescue']       = options.get('speckle_rescue', 0)
             config = dict(config)
