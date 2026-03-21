@@ -10,7 +10,7 @@ Engine types:
   'stencil'      Luminance-only quantization (monochrome)
   'classic'      RGB median cut (not yet ported — raises NotImplementedError)
   'reveal-mk1.5' Legacy engine (RevealMk15Engine port)
-  'distilled'    Over-quantize + furthest-point (not yet ported)
+  'distilled'    Over-quantize + furthest-point sampling (PaletteDistiller port)
 
 Input:  list/array of 16-bit Lab engine values (3 per pixel),
         or RGBA uint8 array when format='rgb'.
@@ -48,6 +48,7 @@ from .palette_ops import (
 )
 from .centroid_strategies import CENTROID_STRATEGIES
 from .reveal_mk15_engine import posterize_mk15
+from .palette_distiller import over_quantize_count, distill as distill_palette
 
 
 # ---------------------------------------------------------------------------
@@ -634,6 +635,55 @@ def _posterize_stencil(pixels, width: int, height: int, target_colors: int, opti
 
 
 # ---------------------------------------------------------------------------
+# Distilled engine (over-quantize + furthest-point sampling)
+# ---------------------------------------------------------------------------
+
+def _posterize_distilled(pixels, width: int, height: int, target_colors: int, options: dict) -> dict:
+    """Over-quantize with mk1.5, then distill to target_colors via FPS."""
+    over_k = over_quantize_count(target_colors)
+
+    # Run mk1.5 with extra colors disabled — we only want clean median-cut buckets
+    over_options = {
+        **options,
+        'enable_hue_gap_analysis': False,
+        'peak_finder_max_peaks':   0,
+        'enable_palette_reduction': False,
+    }
+    over_result = posterize_mk15(pixels, width, height, over_k, over_options)
+
+    over_palette = over_result['palette_lab']
+    assignments  = over_result['assignments']
+    pixel_count  = width * height
+
+    distilled = distill_palette(over_palette, assignments, pixel_count, target_colors)
+
+    reduced_palette_lab = distilled['palette']
+    remap               = distilled['remap']
+
+    # Remap assignments (255 = transparent — leave unchanged)
+    new_assignments = bytearray(len(assignments))
+    for i, idx in enumerate(assignments):
+        new_assignments[i] = remap[idx] if idx < len(remap) else idx
+
+    reduced_palette_rgb = [_lab_dict_to_rgb_dict(c) for c in reduced_palette_lab]
+
+    return {
+        'palette':       reduced_palette_rgb,
+        'palette_lab':   reduced_palette_lab,
+        'assignments':   new_assignments,
+        'lab_pixels':    over_result['lab_pixels'],
+        'substrate_lab': over_result.get('substrate_lab'),
+        'substrate_index': None,
+        'metadata': {
+            **over_result.get('metadata', {}),
+            'target_colors': target_colors,
+            'final_colors':  len(reduced_palette_lab),
+            'over_k':        over_k,
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -704,7 +754,7 @@ def posterize(pixels, width: int, height: int, target_colors: int, options: dict
         return posterize_mk15(pixels, width, height, target_colors, merged)
 
     if engine_type == 'distilled':
-        return posterize_mk15(pixels, width, height, target_colors, merged)
+        return _posterize_distilled(pixels, width, height, target_colors, merged)
 
     # Unknown engine — fall back to reveal
     return _posterize_reveal_mk1_0(pixels, width, height, target_colors, merged)
