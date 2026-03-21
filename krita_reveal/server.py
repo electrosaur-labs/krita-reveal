@@ -182,6 +182,17 @@ class _Handler(BaseHTTPRequestHandler):
             with self._state._lock:
                 palette = list(self._state.palette)
             self._serve_json({'ok': True, 'palette': palette})
+        elif path == '/api/revert-delete':
+            old_ver = self._state.preview_version
+            self._queue.put({'type': 'revert-delete', 'params': params})
+            import time
+            for _ in range(40):
+                time.sleep(0.05)
+                if self._state.preview_version != old_ver:
+                    break
+            with self._state._lock:
+                palette = list(self._state.palette)
+            self._serve_json({'ok': True, 'palette': palette})
         else:
             self._send_code(404)
 

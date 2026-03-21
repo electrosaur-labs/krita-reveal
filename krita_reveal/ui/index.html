@@ -604,7 +604,6 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
 
         <div id="archetype-bar">
             <select id="sel-archetype" title="Select archetype">
-                <option value="__auto__">Auto-detect</option>
             </select>
         </div>
 
@@ -648,6 +647,42 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
             <span class="knob-help" id="h-clamp">Minimum ink density per screen — faint mask areas below this threshold get boosted to a printable level. 0% = no clamping.</span>
 
             <div class="knob-row">
+                <span class="knob-label">Pre-Smoothing</span>
+                <button class="knob-revert" id="revert-preprocessing" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-preprocessing">
+                <option value="off" selected>Off</option>
+                <option value="auto">Auto</option>
+                <option value="light">Light</option>
+                <option value="medium">Medium</option>
+                <option value="heavy">Heavy</option>
+            </select>
+
+            <!-- Post-processing -->
+            <div class="knob-group-label">Output</div>
+            <div class="knob-row">
+                <span class="knob-label">Preview Quality</span>
+            </div>
+            <select id="k-proxy-res">
+                <option value="400">Draft (400px)</option>
+                <option value="600">Medium (600px)</option>
+                <option value="800" selected>Standard (800px)</option>
+                <option value="1200">High (1200px)</option>
+            </select>
+
+            <div class="knob-row">
+                <span class="knob-label">Dither</span>
+                <button class="knob-revert" id="revert-dither-type" title="Revert">&#x21bb;</button>
+            </div>
+            <select id="k-dither-type">
+                <option value="none">None</option>
+                <option value="floyd-steinberg">Floyd-Steinberg</option>
+                <option value="bayer">Bayer</option>
+                <option value="atkinson">Atkinson</option>
+                <option value="stucki">Stucki</option>
+            </select>
+
+            <div class="knob-row">
                 <span class="knob-label">Mesh Count</span>
                 <button class="knob-revert" id="revert-mesh-size" title="Revert">&#x21bb;</button>
             </div>
@@ -669,84 +704,70 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
             </div>
             <input type="range" id="k-trap-size" min="0" max="10" value="0" step="1">
 
-            <!-- Method -->
-            <div class="knob-group-label">Method</div>
-            <div class="knob-row">
-                <span class="knob-label">Separation Method</span>
-                <button class="knob-revert" id="revert-engine-type" title="Revert">&#x21bb;</button>
-            </div>
-            <select id="k-engine-type">
-                <option value="reveal-mk1.5">Standard</option>
-                <option value="distilled">Adaptive</option>
-                <option value="reveal">Hue-Aware</option>
-                <option value="balanced">Fast</option>
-                <option value="stencil">Stencil</option>
-            </select>
-
-            <div class="knob-row">
-                <span class="knob-label">Color Mode</span>
-                <button class="knob-revert" id="revert-color-mode" title="Revert">&#x21bb;</button>
-            </div>
-            <select id="k-color-mode">
-                <option value="color">Color</option>
-                <option value="bw">B/W</option>
-                <option value="grayscale">Grayscale</option>
-            </select>
-
-            <!-- Print Surface -->
-            <div class="knob-group-label">Print Surface</div>
-            <div class="knob-row">
-                <span class="knob-label">Surface</span>
-                <button class="knob-revert" id="revert-substrate-mode" title="Revert">&#x21bb;</button>
-            </div>
-            <select id="k-substrate-mode">
-                <option value="auto">Auto</option>
-                <option value="white">White</option>
-                <option value="dark">Dark</option>
-                <option value="black">Black</option>
-                <option value="none" selected>None</option>
-                <option value="transparent">Transparent</option>
-            </select>
-
-            <div class="knob-row">
-                <span class="knob-label">Tolerance</span>
-                <button class="knob-revert" id="revert-substrate-tolerance" title="Revert">&#x21bb;</button>
-                <span class="knob-val" id="v-substrate-tolerance">2.0</span>
-            </div>
-            <input type="range" id="k-substrate-tolerance" min="0" max="5" value="2.0" step="0.5">
-
-            <div class="knob-check-row">
-                <span class="knob-label">Keep White</span>
-                <button class="knob-revert" id="revert-preserve-white" title="Revert">&#x21bb;</button>
-                <input type="checkbox" class="adv-checkbox" id="k-preserve-white" checked>
-            </div>
-            <div class="knob-check-row">
-                <span class="knob-label">Keep Black</span>
-                <button class="knob-revert" id="revert-preserve-black" title="Revert">&#x21bb;</button>
-                <input type="checkbox" class="adv-checkbox" id="k-preserve-black" checked>
-            </div>
-            <div class="knob-check-row">
-                <span class="knob-label">Skip Transparent</span>
-                <button class="knob-revert" id="revert-ignore-transparent" title="Revert">&#x21bb;</button>
-                <input type="checkbox" class="adv-checkbox" id="k-ignore-transparent" checked>
-            </div>
-
-            <!-- Output -->
-            <div class="knob-group-label">Output</div>
-            <div class="knob-row">
-                <span class="knob-label">Dither</span>
-                <button class="knob-revert" id="revert-dither-type" title="Revert">&#x21bb;</button>
-            </div>
-            <select id="k-dither-type">
-                <option value="none">None</option>
-                <option value="floyd-steinberg">Floyd-Steinberg</option>
-                <option value="bayer">Bayer</option>
-                <option value="atkinson">Atkinson</option>
-                <option value="stucki">Stucki</option>
-            </select>
-
 <details id="advanced-panel">
     <summary>Advanced</summary>
+
+    <!-- Method -->
+    <div class="knob-group-label">Method</div>
+    <div class="knob-row">
+        <span class="knob-label">Separation Method</span>
+        <button class="knob-revert" id="revert-engine-type" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-engine-type">
+        <option value="reveal-mk1.5">Standard</option>
+        <option value="distilled">Adaptive</option>
+        <option value="reveal">Hue-Aware</option>
+        <option value="balanced">Fast</option>
+        <option value="stencil">Stencil</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Color Mode</span>
+        <button class="knob-revert" id="revert-color-mode" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-color-mode">
+        <option value="color">Color</option>
+        <option value="bw">B/W</option>
+        <option value="grayscale">Grayscale</option>
+    </select>
+
+    <!-- Print Surface -->
+    <div class="knob-group-label">Print Surface</div>
+    <div class="knob-row">
+        <span class="knob-label">Surface</span>
+        <button class="knob-revert" id="revert-substrate-mode" title="Revert">&#x21bb;</button>
+    </div>
+    <select id="k-substrate-mode">
+        <option value="auto">Auto</option>
+        <option value="white">White</option>
+        <option value="dark">Dark</option>
+        <option value="black">Black</option>
+        <option value="none" selected>None</option>
+        <option value="transparent">Transparent</option>
+    </select>
+
+    <div class="knob-row">
+        <span class="knob-label">Tolerance</span>
+        <button class="knob-revert" id="revert-substrate-tolerance" title="Revert">&#x21bb;</button>
+        <span class="knob-val" id="v-substrate-tolerance">2.0</span>
+    </div>
+    <input type="range" id="k-substrate-tolerance" min="0" max="5" value="2.0" step="0.5">
+
+    <div class="knob-check-row">
+        <span class="knob-label">Keep White</span>
+        <button class="knob-revert" id="revert-preserve-white" title="Revert">&#x21bb;</button>
+        <input type="checkbox" class="adv-checkbox" id="k-preserve-white" checked>
+    </div>
+    <div class="knob-check-row">
+        <span class="knob-label">Keep Black</span>
+        <button class="knob-revert" id="revert-preserve-black" title="Revert">&#x21bb;</button>
+        <input type="checkbox" class="adv-checkbox" id="k-preserve-black" checked>
+    </div>
+    <div class="knob-check-row">
+        <span class="knob-label">Skip Transparent</span>
+        <button class="knob-revert" id="revert-ignore-transparent" title="Revert">&#x21bb;</button>
+        <input type="checkbox" class="adv-checkbox" id="k-ignore-transparent" checked>
+    </div>
 
     <div class="knob-group-label">Algorithm</div>
     <div class="knob-row">
@@ -786,18 +807,6 @@ details#advanced-panel[open] > summary::before { content: '▼ '; }
         <option value="ROBUST_SALIENCY">Balanced (Robust Saliency)</option>
         <option value="VOLUMETRIC">Even Fill (Volumetric)</option>
         <option value="AVERAGE">Simple Average (Average)</option>
-    </select>
-
-    <div class="knob-row">
-        <span class="knob-label">Pre-Smoothing</span>
-        <button class="knob-revert" id="revert-preprocessing" title="Revert">&#x21bb;</button>
-    </div>
-    <select id="k-preprocessing">
-        <option value="off" selected>Off</option>
-        <option value="auto">Auto</option>
-        <option value="light">Light</option>
-        <option value="medium">Medium</option>
-        <option value="heavy">Heavy</option>
     </select>
 
     <div class="knob-row">
@@ -1005,6 +1014,8 @@ const statusBar     = document.getElementById('status-bar');
 const sideStatus    = document.getElementById('side-status');
 const surgeon       = document.getElementById('palette-surgeon');
 const grid          = document.getElementById('surgeon-grid');
+grid.addEventListener('click',     onSwatchClick,    false);
+grid.addEventListener('mousedown', onSwatchAltClick, false);
 const btnSep        = document.getElementById('btn-separate');
 const btnBuild      = document.getElementById('btn-build');
 
@@ -1020,8 +1031,10 @@ document.getElementById('btn-help-toggle').addEventListener('click', function ()
 });
 
 document.getElementById('btn-reset').addEventListener('click', () => {
-    archetypeDefaults = Object.assign({}, DEFAULTS);
-    for (const [id, val] of Object.entries(DEFAULTS)) {
+    // Reset to archetype's values (archetypeDefaults), falling back to DEFAULTS
+    // for anything the archetype didn't specify. Do NOT clobber archetypeDefaults.
+    for (const [id, def] of Object.entries(DEFAULTS)) {
+        const val = archetypeDefaults[id] !== undefined ? archetypeDefaults[id] : def;
         const el = document.getElementById(id);
         if (!el) continue;
         if (el.type === 'checkbox') { el.checked = val; el.dispatchEvent(new Event('change')); }
@@ -1097,6 +1110,7 @@ function initSelect(id, revertId) {
     }
 
     sel.addEventListener('change', update);
+    sel.addEventListener('input',  update);  // fired by programmatic setSelect()
 
     if (revertId) {
         const btn = document.getElementById(revertId);
@@ -1119,6 +1133,7 @@ function initCheckbox(id, revertId) {
     }
 
     chk.addEventListener('change', update);
+    chk.addEventListener('input',  update);  // fired by programmatic setCheckbox()
 
     if (revertId) {
         const btn = document.getElementById(revertId);
@@ -1180,12 +1195,16 @@ function setSlider(id, value) {
 
 function setSelect(id, value) {
     const el = document.getElementById(id);
-    if (el) el.value = String(value);
+    if (!el) return;
+    el.value = String(value);
+    el.dispatchEvent(new Event('input'));
 }
 
 function setCheckbox(id, value) {
     const el = document.getElementById(id);
-    if (el) el.checked = !!value;
+    if (!el) return;
+    el.checked = !!value;
+    el.dispatchEvent(new Event('input'));
 }
 
 // ── Apply matched archetype values to all controls ───────────────────────────
@@ -1251,33 +1270,64 @@ function applyMatchedArchetype(ma) {
 }
 
 // ── Archetype selector ───────────────────────────────────────────────────────
-let archetypeColors = {};  // id → max_colors
+let archetypeColors = {};   // id → max_colors
+let archetypeList   = [];   // last full sorted list, for re-render on toggle
+let othersExpanded  = false;
 
 function renderArchetypes(archetypes, matchedId) {
     archetypeColors = {};
     selArchetype.innerHTML = '';
 
-    // Always keep Auto-detect at top
-    const autoOpt = document.createElement('option');
-    autoOpt.value = '__auto__';
-    autoOpt.textContent = 'Auto-detect';
-    selArchetype.appendChild(autoOpt);
-
     const sorted = archetypes.slice().sort((a, b) => b.score - a.score);
-    sorted.forEach(a => {
-        archetypeColors[a.id] = a.max_colors || 6;
+    archetypeList = sorted;
+    sorted.forEach(a => { archetypeColors[a.id] = a.max_colors || 6; });
+
+    const makeOpt = a => {
         const opt = document.createElement('option');
         opt.value = a.id;
         opt.textContent = `${a.name}  ${Math.round(a.score)}%`;
         if (a.id === matchedId) opt.selected = true;
-        selArchetype.appendChild(opt);
-    });
+        return opt;
+    };
+
+    const top  = sorted.slice(0, 6);
+    const rest = sorted.slice(6);
+
+    top.forEach(a => selArchetype.appendChild(makeOpt(a)));
+
+    if (rest.length) {
+        if (othersExpanded) {
+            const grp = document.createElement('optgroup');
+            grp.label = `▾ Others`;
+            rest.forEach(a => grp.appendChild(makeOpt(a)));
+            selArchetype.appendChild(grp);
+        }
+        const sentinel = document.createElement('option');
+        sentinel.value = '__others_toggle__';
+        sentinel.textContent = othersExpanded
+            ? `▴ Collapse others`
+            : `▾ Others (${rest.length})…`;
+        selArchetype.appendChild(sentinel);
+    }
 }
 
 selArchetype.addEventListener('change', () => {
     if (!hasResult || isRunning) return;
 
     const archId = selArchetype.value;
+
+    if (archId === '__others_toggle__') {
+        othersExpanded = !othersExpanded;
+        // Re-render in place — restore whichever archetype was selected before
+        const current = selArchetype.querySelector('option[selected]')?.value
+                     || selArchetype.dataset.lastId || '__auto__';
+        renderArchetypes(archetypeList, current);
+        return;
+    }
+
+    // Collapse Others after picking from it
+    othersExpanded = false;
+    selArchetype.dataset.lastId = archId;
     isRunning = true;
     hasResult = false;
     previewCont.classList.remove('has-image');
@@ -1337,6 +1387,7 @@ function collectParams() {
         ignore_transparent:       document.getElementById('k-ignore-transparent').checked,
         mesh_size:                parseInt(document.getElementById('k-mesh-size').value),
         trap_size:                parseFloat(document.getElementById('k-trap-size').value),
+        proxy_resolution:         parseInt(document.getElementById('k-proxy-res').value),
     };
 }
 
@@ -1382,9 +1433,12 @@ function renderSwatches(palette) {
     grid.innerHTML = '';
     palette.forEach((c, i) => {
         const sw = document.createElement('div');
-        sw.className = 'surgeon-swatch';
+        sw.className = c.is_deleted ? 'surgeon-swatch surgeon-deleted' : 'surgeon-swatch';
         sw.dataset.idx = i;
-        sw.title = `${c.hex}  ${c.pct}%\nClick: solo  Alt+click: delete  Double-click: edit color`;
+        const tip = c.is_deleted
+            ? `${c.hex}  —\nAlt+click: restore`
+            : `${c.hex}  ${c.pct}%\nClick: solo  Alt+click: delete  Ctrl+click: edit color`;
+        sw.title = tip;
 
         const block = document.createElement('div');
         block.className = 'surgeon-color-block';
@@ -1392,17 +1446,13 @@ function renderSwatches(palette) {
 
         const pct = document.createElement('span');
         pct.className = 'surgeon-pct';
-        pct.textContent = Math.round(c.pct) + '%';
+        pct.textContent = c.is_deleted ? '—' : Math.round(c.pct) + '%';
 
         sw.appendChild(block);
         sw.appendChild(pct);
         grid.appendChild(sw);
     });
     surgeon.classList.add('visible');
-
-    grid.addEventListener('click',     onSwatchClick,  false);
-    grid.addEventListener('dblclick',  onSwatchDblClick, false);
-    grid.addEventListener('mousedown', onSwatchAltClick, false);
 }
 
 function getSwatchIdx(e) {
@@ -1414,6 +1464,12 @@ function onSwatchClick(e) {
     if (e.altKey) return;  // handled by mousedown
     const idx = getSwatchIdx(e);
     if (idx < 0) return;
+    const c = paletteData[idx];
+    if (!c || c.is_deleted) return;  // no action on deleted swatches
+    if (e.ctrlKey) {
+        cpOpen(idx, c.hex, e.target.closest('.surgeon-swatch'));
+        return;
+    }
     const deselect = selectedIdx === idx;
     document.querySelectorAll('.surgeon-swatch').forEach(s =>
         s.classList.remove('surgeon-selected'));
@@ -1427,22 +1483,15 @@ function onSwatchClick(e) {
     }).then(() => refreshPreview('post'));
 }
 
-function onSwatchDblClick(e) {
-    const idx = getSwatchIdx(e);
-    if (idx < 0) return;
-    const c = paletteData[idx];
-    cpOpen(idx, c.hex, e.target.closest('.surgeon-swatch'));
-}
-
 function onSwatchAltClick(e) {
     if (!e.altKey) return;
     const idx = getSwatchIdx(e);
     if (idx < 0) return;
     e.preventDefault();
-    // Mark visually as deleted immediately, before server responds
-    const sw = e.target.closest('.surgeon-swatch');
-    if (sw) sw.classList.add('surgeon-deleted');
-    fetch('/api/delete', {
+    const c = paletteData[idx];
+    const isDeleted = c && c.is_deleted;
+    const endpoint = isDeleted ? '/api/revert-delete' : '/api/delete';
+    fetch(endpoint, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({idx}),
@@ -1583,8 +1632,10 @@ function cpOpen(idx, hex, anchorEl) {
     [cpH, cpS, cpV] = rgbToHsv(r, g, b);
     cpUpdate();
 
-    const rect = anchorEl ? anchorEl.getBoundingClientRect() : {left:40, bottom:40};
-    const top = rect.bottom + 4;
+    const rect = anchorEl ? anchorEl.getBoundingClientRect() : {left:40, bottom:40, top:40};
+    const cpHeight = 250;
+    const spaceBelow = window.innerHeight - rect.bottom - 4;
+    const top = spaceBelow >= cpHeight ? rect.bottom + 4 : rect.top - cpHeight - 4;
     const left = Math.min(rect.left, window.innerWidth - 192);
     cpicker.style.left = left + 'px';
     cpicker.style.top  = top + 'px';
@@ -1733,19 +1784,25 @@ function scheduleRerun() {
  'k-vibrancy-boost', 'k-l-weight', 'k-c-weight', 'k-black-bias',
  'k-shadow-point', 'k-palette-reduction', 'k-hue-lock-angle',
  'k-neutral-sovereignty', 'k-chroma-gate', 'k-highlight-threshold', 'k-highlight-boost',
- 'k-detail-rescue', 'k-substrate-tolerance', 'k-trap-size'].forEach(id => {
+ 'k-detail-rescue', 'k-substrate-tolerance'].forEach(id => {
     document.getElementById(id).addEventListener('change', scheduleRerun);
 });
+// k-dither-type, k-mesh-size, k-trap-size are post-processing — no auto-rerun
 ['k-vibrancy-mode', 'k-substrate-mode', 'k-preprocessing',
  'k-enable-palette-reduction', 'k-enable-hue-gap',
  'k-preserve-white', 'k-preserve-black',
- 'k-engine-type', 'k-color-mode', 'k-dither-type', 'k-distance-metric',
- 'k-centroid-strategy', 'k-split-mode', 'k-quantizer', 'k-mesh-size',
+ 'k-engine-type', 'k-color-mode', 'k-distance-metric',
+ 'k-centroid-strategy', 'k-split-mode', 'k-quantizer',
  'k-median-pass', 'k-ignore-transparent'].forEach(id => {
     document.getElementById(id).addEventListener('change', scheduleRerun);
 });
 
 btnSep.addEventListener('click', () => {
+    if (rerunTimer) { clearTimeout(rerunTimer); rerunTimer = null; }
+    startSeparation();
+});
+
+document.getElementById('k-proxy-res').addEventListener('change', () => {
     if (rerunTimer) { clearTimeout(rerunTimer); rerunTimer = null; }
     startSeparation();
 });

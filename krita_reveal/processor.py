@@ -109,12 +109,13 @@ class RevealCommandProcessor(QObject):
 
     def _execute(self, cmd):
         t = cmd['type']
-        if   t == 'separate': self._do_separate(cmd['params'])
-        elif t == 'solo':     self._do_solo(cmd['params'])
-        elif t == 'build':    self._do_build()
-        elif t == 'override': self._do_override(cmd['params'])
-        elif t == 'delete':   self._do_delete(cmd['params'])
-        elif t == 'rerun':    self._do_rerun(cmd['params'])
+        if   t == 'separate':      self._do_separate(cmd['params'])
+        elif t == 'solo':          self._do_solo(cmd['params'])
+        elif t == 'build':         self._do_build()
+        elif t == 'override':      self._do_override(cmd['params'])
+        elif t == 'delete':        self._do_delete(cmd['params'])
+        elif t == 'revert-delete': self._do_revert_delete(cmd['params'])
+        elif t == 'rerun':         self._do_rerun(cmd['params'])
 
     # ── Separate ──────────────────────────────────────────────────────
 
@@ -131,7 +132,7 @@ class RevealCommandProcessor(QObject):
         self._state.set_running('Reading pixels…')
         try:
             pixels, w, h   = read_document_pixels(doc)
-            pixels, dw, dh = downsample_pixels(pixels, w, h, max_dim=800)
+            pixels, dw, dh = downsample_pixels(pixels, w, h, max_dim=int(params.get('proxy_resolution', 800)))
         except Exception as e:
             self._state.set_error(f'Read error: {e}')
             return
@@ -269,51 +270,48 @@ class RevealCommandProcessor(QObject):
         self._result['palette'][idx] = {'r': r, 'g': g, 'b': b}
         self._rebuild_preview()
 
-    # ── Delete ────────────────────────────────────────────────────────
+    # ── Delete / Revert-delete ────────────────────────────────────────
+
+    def _effective_assignments(self):
+        """Return assignments with deleted palette entries remapped to nearest live color."""
+        palette     = self._result['palette']
+        assignments = self._result['assignments']
+        live = [i for i, c in enumerate(palette) if not c.get('is_deleted')]
+        if not live or len(live) == len(palette):
+            return assignments
+
+        def rgb_dist(a, b):
+            return (a['r']-b['r'])**2 + (a['g']-b['g'])**2 + (a['b']-b['b'])**2
+
+        remap = {}
+        for i, c in enumerate(palette):
+            if c.get('is_deleted'):
+                remap[i] = min(live, key=lambda j: rgb_dist(c, palette[j]))
+        return [remap.get(a, a) for a in assignments]
 
     def _do_delete(self, params):
-        """Merge a palette color into its nearest neighbor and refresh preview."""
+        """Badge a palette color as deleted; pixels remap to nearest live color."""
         if not self._result:
             return
-        idx = int(params.get('idx', -1))
+        idx     = int(params.get('idx', -1))
         palette = self._result['palette']
-        n = len(palette)
-        if idx < 0 or idx >= n or n <= 2:
+        if idx < 0 or idx >= len(palette) or palette[idx].get('is_deleted'):
             return
+        live_count = sum(1 for c in palette if not c.get('is_deleted'))
+        if live_count <= 2:
+            return  # keep at least 2 live colors
+        palette[idx]['is_deleted'] = True
+        self._rebuild_preview()
 
-        # Find nearest neighbor by RGB distance
-        def rgb_dist(a, b):
-            return (a['r'] - b['r'])**2 + (a['g'] - b['g'])**2 + (a['b'] - b['b'])**2
-
-        target   = palette[idx]
-        best_i   = -1
-        best_d   = float('inf')
-        for i, c in enumerate(palette):
-            if i == idx:
-                continue
-            d = rgb_dist(target, c)
-            if d < best_d:
-                best_d, best_i = d, i
-
-        # Remap assignments: idx → best_i, then collapse indices above idx
-        assignments = self._result['assignments']
-        for i in range(len(assignments)):
-            if assignments[i] == idx:
-                assignments[i] = best_i
-            elif assignments[i] > idx:
-                assignments[i] -= 1
-
-        # Remove color from palette
-        palette.pop(idx)
-
-        # Recalculate coverage
-        total  = self._proxy_w * self._proxy_h
-        counts = [0] * len(palette)
-        for a in assignments:
-            if a < len(palette):
-                counts[a] += 1
-        self._result['_coverage'] = [100.0 * c / total for c in counts]
-
+    def _do_revert_delete(self, params):
+        """Restore a previously deleted palette color."""
+        if not self._result:
+            return
+        idx     = int(params.get('idx', -1))
+        palette = self._result['palette']
+        if idx < 0 or idx >= len(palette):
+            return
+        palette[idx].pop('is_deleted', None)
         self._rebuild_preview()
 
     def _rebuild_preview(self):
@@ -321,15 +319,24 @@ class RevealCommandProcessor(QObject):
         r      = self._result
         pw, ph = r['_proxy_w'], r['_proxy_h']
 
-        r['_post_rgb'] = make_posterized_rgb(r['assignments'], r['palette'], pw, ph)
-        post_jpg = _to_jpeg(r['_post_rgb'], pw, ph)
+        effective    = self._effective_assignments()
+        r['_post_rgb'] = make_posterized_rgb(effective, r['palette'], pw, ph)
+        post_jpg     = _to_jpeg(r['_post_rgb'], pw, ph)
 
-        coverage = r.get('_coverage', [])
+        total  = pw * ph
+        counts = [0] * len(r['palette'])
+        for a in effective:
+            if a < len(counts):
+                counts[a] += 1
+        r['_coverage'] = [100.0 * c / total for c in counts]
+
+        coverage    = r['_coverage']
         palette_out = [
             {
                 'r': c['r'], 'g': c['g'], 'b': c['b'],
                 'hex': f"#{c['r']:02X}{c['g']:02X}{c['b']:02X}",
-                'pct': round(coverage[i] if i < len(coverage) else 0.0, 1),
+                'pct': 0.0 if c.get('is_deleted') else round(coverage[i] if i < len(coverage) else 0.0, 1),
+                'is_deleted': bool(c.get('is_deleted', False)),
             }
             for i, c in enumerate(r['palette'])
         ]

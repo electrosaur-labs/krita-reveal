@@ -15,9 +15,23 @@ class RevealExtension(Extension):
         super().__init__(parent)
         self._server    = None
         self._processor = None
+        self._browser   = None  # Popen handle for the app-mode window
 
     def setup(self):
-        pass
+        from krita import Krita
+        Krita.instance().notifier().applicationClosing.connect(self._on_closing)
+
+    def _on_closing(self):
+        if self._browser is not None:
+            try:
+                self._browser.terminate()
+            except Exception:
+                pass
+        if self._server is not None:
+            try:
+                self._server.stop()
+            except Exception:
+                pass
 
     def createActions(self, window):
         action = window.createAction(
@@ -49,6 +63,8 @@ class RevealExtension(Extension):
             '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
         ):
             if shutil.which(app) or __import__('os').path.exists(app):
-                subprocess.Popen([app, f'--app={url}', '--window-size=780,680'])
+                self._browser = subprocess.Popen(
+                    [app, f'--app={url}', '--window-size=780,680']
+                )
                 return True
         return False

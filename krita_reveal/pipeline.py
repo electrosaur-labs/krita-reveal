@@ -113,11 +113,10 @@ def _get_archetype_scores(config: dict) -> list:
     from pyreveal.analysis.archetype_loader import ArchetypeLoader
     ranking = (config.get('meta') or {}).get('match_ranking') or []
     if not ranking:
-        p = (config.get('parameters') or {})
-        scores = [{'id': config.get('id', ''), 'name': config.get('name', ''),
-                   'group': '', 'score': 1.0,
-                   'min_colors': p.get('minColors', 4),
-                   'max_colors': p.get('maxColors', 8)}]
+        # Forced single-archetype rerun — no full ranking available.
+        # Return [] so the processor keeps its cached full ranking from the
+        # initial auto-match run (processor.py: `if fresh: self._archetype_scores = fresh`).
+        return []
     else:
         arch_by_id = {a['id']: a for a in ArchetypeLoader.load_archetypes()}
         scores = [
@@ -148,6 +147,63 @@ def _get_archetype_scores(config: dict) -> list:
     return scores
 
 
+# camelCase interpolator output → snake_case config keys expected by ParameterGenerator
+_CAMEL_TO_SNAKE = {
+    'lWeight':                     'l_weight',
+    'cWeight':                     'c_weight',
+    'bWeight':                     'b_weight',
+    'blackBias':                   'black_bias',
+    'vibrancyBoost':               'vibrancy_boost',
+    'vibrancyMode':                'vibrancy_mode',
+    'highlightThreshold':          'highlight_threshold',
+    'highlightBoost':              'highlight_boost',
+    'paletteReduction':            'palette_reduction',
+    'enablePaletteReduction':      'enable_palette_reduction',
+    'substrateTolerance':          'substrate_tolerance',
+    'substrateMode':               'substrate_mode',
+    'hueLockAngle':                'hue_lock_angle',
+    'enableHueGapAnalysis':        'enable_hue_gap_analysis',
+    'shadowPoint':                 'shadow_point',
+    'colorMode':                   'color_mode',
+    'preserveWhite':               'preserve_white',
+    'preserveBlack':               'preserve_black',
+    'ignoreTransparent':           'ignore_transparent',
+    'centroidStrategy':            'centroid_strategy',
+    'splitMode':                   'split_mode',
+    'quantizer':                   'quantizer',
+    'refinementPasses':            'refinement_passes',
+    'neutralSovereigntyThreshold': 'neutral_sovereignty_threshold',
+    'chromaGate':                  'chroma_gate',
+    'detailRescue':                'detail_rescue',
+    'speckleRescue':               'speckle_rescue',
+    'medianPass':                  'median_pass',
+    'minVolume':                   'min_volume',
+    'shadowClamp':                 'shadow_clamp',
+    'shadowChromaGateL':           'shadow_chroma_gate_l',
+    'distanceMetric':              'distance_metric',
+    'ditherType':                  'dither_type',
+    'maxColors':                   'target_colors',   # interpolator uses maxColors
+    'preprocessingIntensity':      'preprocessing_intensity',
+}
+
+
+def _interpolator_to_config(interp_params: dict, dna: dict) -> dict:
+    """Convert InterpolatorEngine camelCase output to the snake_case config dict
+    expected by ParameterGenerator.to_engine_options()."""
+    config: dict = {}
+    for camel, snake in _CAMEL_TO_SNAKE.items():
+        val = interp_params.get(camel)
+        if val is not None:
+            config[snake] = val
+    # Chameleon always uses distilled engine (set by generateConfigurationMk2)
+    config['engine_type'] = 'distilled'
+    # Fixed safety floor (matches ParameterGenerator.generate)
+    config['neutral_centroid_clamp_threshold'] = 0.5
+    config['range_clamp'] = [dna.get('min_l', 0), dna.get('max_l', 100)]
+    config.setdefault('preprocessing', {'enabled': False})
+    return config
+
+
 def run_separation(pixels: list, width: int, height: int,
                    target_colors: int = 6, options: dict = None) -> dict:
     """Run the full pyreveal pipeline and return posterize_image() result.
@@ -166,21 +222,30 @@ def run_separation(pixels: list, width: int, height: int,
 
     dna = pyreveal.analyze_image(pixels, width, height, {'bit_depth': 16})
 
-    mechanical = {}   # populated in archetype-driven branch; used for _matched_archetype
+    mechanical  = {}    # populated in archetype-driven branch; used for _matched_archetype
+    blend_info  = None  # set for Chameleon/Salamander (interpolator); None otherwise
 
     # ── Archetype-driven mode ─────────────────────────────────────────────
     if archetype_id is not None:
         manual_id = archetype_id if archetype_id != '__auto__' else None
         is_pseudo = manual_id in _PSEUDO_ARCHETYPES
 
-        # Pseudo-archetypes have no JSON; run auto-match for DNA-based config,
-        # then apply the pseudo-archetype's behaviour overrides on top.
-        if is_pseudo:
-            config = pyreveal.generate_configuration(dna)
+        # Build config: interpolator for Chameleon/Salamander, auto-match for others.
+        if manual_id in ('dynamic_interpolator', 'salamander'):
+            from pyreveal.analysis.interpolator_engine import get_engine
+            flat_dna   = dna.get('global', dna)
+            interp     = get_engine().interpolate(flat_dna)
+            config     = _interpolator_to_config(interp['parameters'], dna)
+            blend_info = interp['blendInfo']
+        elif is_pseudo:
+            # distilled — no JSON archetype, use auto-match config as base
+            config     = pyreveal.generate_configuration(dna)
+            blend_info = None
         else:
-            config = pyreveal.generate_configuration(
+            config     = pyreveal.generate_configuration(
                 dna, {'manual_archetype_id': manual_id} if manual_id else None,
             )
+            blend_info = None
 
         # Archetype owns all algorithm params; mechanical knobs override only
         # when explicitly provided — otherwise fall through to archetype's values.
@@ -224,13 +289,19 @@ def run_separation(pixels: list, width: int, height: int,
         params['engine_type'] = _ENGINE_MAP.get(params.get('engine_type', ''), params.get('engine_type', 'reveal'))
 
         # ── Pseudo-archetype behaviour overrides ──────────────────────────
-        if manual_id == 'distilled':
-            params['engine_type']            = 'distilled'
+        if manual_id == 'dynamic_interpolator':
+            # Chameleon: interpolator already set engine_type='distilled'; just ensure it
+            params['engine_type'] = 'distilled'
+        elif manual_id == 'distilled':
+            params['engine_type']             = 'distilled'
             params['enable_palette_reduction'] = False
         elif manual_id == 'salamander':
-            params['centroid_strategy']       = 'SALIENCY'
+            # Salamander = Chameleon + distilled engine + no pruning + no preprocessing
+            params['engine_type']             = 'distilled'
+            params['centroid_strategy']        = 'SALIENCY'
             params['enable_palette_reduction'] = False
-            # No preprocessing — Salamander runs on raw pixels
+            mechanical['density_floor']        = options.get('density_floor', 0)
+            mechanical['speckle_rescue']       = options.get('speckle_rescue', 0)
             config = dict(config)
             config['preprocessing'] = {'enabled': False}
 

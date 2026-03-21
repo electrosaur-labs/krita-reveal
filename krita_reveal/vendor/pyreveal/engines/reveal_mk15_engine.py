@@ -129,9 +129,11 @@ def posterize_mk15(pixels, width: int, height: int,
     total_pixels = len(lab_pixels) // 3
 
     # ── Identity peak detection (PeakFinder) ─────────────────────────────
-    peak_finder_max_peaks          = options.get('peak_finder_max_peaks', 1)
+    _pfmp                          = options.get('peak_finder_max_peaks')
+    peak_finder_max_peaks          = _pfmp if _pfmp is not None else 1
     peak_finder_preferred_sectors  = options.get('peak_finder_preferred_sectors')
-    peak_finder_blacklisted        = options.get('peak_finder_blacklisted_sectors', [3, 4])
+    _pfbs                          = options.get('peak_finder_blacklisted_sectors')
+    peak_finder_blacklisted        = _pfbs if _pfbs is not None else [3, 4]
     forced_centroids_input         = options.get('forced_centroids') or options.get('forcedCentroids')
 
     forced_centroids       = []
@@ -343,7 +345,7 @@ def posterize_mk15(pixels, width: int, height: int,
     enable_hue_gap = options.get('enable_hue_gap_analysis', False)
     if enable_hue_gap and not grayscale_only:
         hue_chroma_threshold = 1.0 if vibrancy_mode == 'exponential' else 5.0
-        image_hues = _analyze_image_hue_sectors(lab_pixels, hue_chroma_threshold)
+        image_hues = _analyze_image_hue_sectors(median_cut_pixels, hue_chroma_threshold)
         coverage_result = _analyze_palette_hue_coverage(snapped_palette_lab, hue_chroma_threshold)
         covered      = coverage_result['covered_sectors']
         counts_by_s  = coverage_result['color_counts_by_sector']
@@ -370,7 +372,8 @@ def posterize_mk15(pixels, width: int, height: int,
     ANCHOR_DUP_THRESHOLD = 3.0
 
     for forced in forced_centroids:
-        is_dup = any(_lab_distance(c, forced) < ANCHOR_DUP_THRESHOLD for c in merged_palette)
+        dists = [(_lab_distance(c, forced), c) for c in merged_palette]
+        is_dup = any(d < ANCHOR_DUP_THRESHOLD for d, _ in dists)
         if is_dup:
             skipped_count += 1
         else:
@@ -473,6 +476,12 @@ def posterize_mk15(pixels, width: int, height: int,
         protected = set()
         if actually_preserved_white: protected.add(white_index)
         if actually_preserved_black: protected.add(black_index)
+        # _min_volume_exempt colors (PeakFinder peaks, hue gap injections) use
+        # a reduced threshold matching JS MechanicalKnobs exempt treatment.
+        for _i, _c in enumerate(final_palette_lab):
+            if _c.get('_min_volume_exempt'):
+                protected.add(_i)
+
 
         density_result = _apply_density_floor(
             assignments, final_palette_lab, density_floor, protected

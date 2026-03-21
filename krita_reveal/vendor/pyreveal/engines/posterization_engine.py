@@ -9,7 +9,7 @@ Engine types:
   'balanced'     Lab median cut without hue gap analysis
   'stencil'      Luminance-only quantization (monochrome)
   'classic'      RGB median cut (not yet ported — raises NotImplementedError)
-  'reveal-mk1.5' Legacy engine (not yet ported — raises NotImplementedError)
+  'reveal-mk1.5' Legacy engine (RevealMk15Engine port)
   'distilled'    Over-quantize + furthest-point (not yet ported)
 
 Input:  list/array of 16-bit Lab engine values (3 per pixel),
@@ -96,33 +96,41 @@ def _normalize_bit_depth(input_val) -> int:
 
 
 def _build_tuning_from_config(options: dict) -> dict:
-    """Map flat options fields to the nested tuning structure."""
+    """Map flat options fields to the nested tuning structure.
+
+    Uses explicit None-checks so that a key present with value None falls
+    back to the TUNING default rather than propagating None into the engine.
+    """
+    def _o(key, default):
+        v = options.get(key)
+        return v if v is not None else default
+
     return {
         'split': {
-            'highlightBoost': options.get('highlight_boost', TUNING['split']['highlightBoost']),
-            'vibrancyBoost': options.get('vibrancy_boost', TUNING['split']['vibrancyBoost']),
-            'minVariance': TUNING['split']['minVariance'],
-            'chromaAxisWeight': options.get('chroma_axis_weight', TUNING['split']['chromaAxisWeight']),
-            'neutralIsolationThreshold': options.get('neutral_isolation_threshold', TUNING['split']['neutralIsolationThreshold']),
-            'warmABoost': options.get('warm_a_boost', 1.0),
-            'splitMode': options.get('split_mode', 'median'),
-            'quantizer': options.get('quantizer', 'median-cut'),
+            'highlightBoost':           _o('highlight_boost',          TUNING['split']['highlightBoost']),
+            'vibrancyBoost':            _o('vibrancy_boost',           TUNING['split']['vibrancyBoost']),
+            'minVariance':              TUNING['split']['minVariance'],
+            'chromaAxisWeight':         _o('chroma_axis_weight',       TUNING['split']['chromaAxisWeight']),
+            'neutralIsolationThreshold': _o('neutral_isolation_threshold', TUNING['split']['neutralIsolationThreshold']),
+            'warmABoost':               _o('warm_a_boost',             1.0),
+            'splitMode':                _o('split_mode',               'median'),
+            'quantizer':                _o('quantizer',                'median-cut'),
         },
         'prune': {
-            'threshold': options.get('palette_reduction', TUNING['prune']['threshold']),
-            'hueLockAngle': options.get('hue_lock_angle', TUNING['prune']['hueLockAngle']),
-            'whitePoint': options.get('highlight_threshold', TUNING['prune']['whitePoint']),
-            'shadowPoint': options.get('shadow_point', TUNING['prune']['shadowPoint']),
-            'isolationThreshold': options.get('isolation_threshold', 0.0),
+            'threshold':         _o('palette_reduction',   TUNING['prune']['threshold']),
+            'hueLockAngle':      _o('hue_lock_angle',      TUNING['prune']['hueLockAngle']),
+            'whitePoint':        _o('highlight_threshold', TUNING['prune']['whitePoint']),
+            'shadowPoint':       _o('shadow_point',        TUNING['prune']['shadowPoint']),
+            'isolationThreshold': _o('isolation_threshold', 0.0),
         },
         'centroid': {
-            'lWeight': options.get('l_weight', TUNING['centroid']['lWeight']),
-            'cWeight': options.get('c_weight', TUNING['centroid']['cWeight']),
-            'bWeight': options.get('b_weight', 1.0),
-            'blackBias': options.get('black_bias', TUNING['centroid']['blackBias']),
-            'bitDepth': _normalize_bit_depth(options.get('bit_depth', 8)),
-            'vibrancyMode': options.get('vibrancy_mode', 'aggressive'),
-            'vibrancyBoost': options.get('vibrancy_boost', 2.2),
+            'lWeight':      _o('l_weight',     TUNING['centroid']['lWeight']),
+            'cWeight':      _o('c_weight',     TUNING['centroid']['cWeight']),
+            'bWeight':      _o('b_weight',     1.0),
+            'blackBias':    _o('black_bias',   TUNING['centroid']['blackBias']),
+            'bitDepth':     _normalize_bit_depth(_o('bit_depth', 8)),
+            'vibrancyMode': _o('vibrancy_mode', 'aggressive'),
+            'vibrancyBoost': _o('vibrancy_boost', 2.2),
         },
     }
 
@@ -565,9 +573,7 @@ def _posterize_reveal_mk1_0(pixels, width: int, height: int, target_colors: int,
     duration = time.perf_counter() - start_time
 
     # ── Density floor ────────────────────────────────────────────────────
-    # Use the already-resolved density_floor (which is 0.0 for is_legacy_v1),
-    # not a fresh options.get() that would bypass the cie76 reset above.
-    density_floor_threshold = density_floor
+    density_floor_threshold = options.get('density_floor', 0.005 if not is_legacy_v1 else 0.0)
 
     if density_floor_threshold > 0:
         protected = set()
@@ -698,7 +704,6 @@ def posterize(pixels, width: int, height: int, target_colors: int, options: dict
         return posterize_mk15(pixels, width, height, target_colors, merged)
 
     if engine_type == 'distilled':
-        # Distilled (over-quantize + furthest-point) not yet ported — use Mk1.5
         return posterize_mk15(pixels, width, height, target_colors, merged)
 
     # Unknown engine — fall back to reveal
