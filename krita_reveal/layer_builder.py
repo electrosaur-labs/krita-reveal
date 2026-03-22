@@ -22,23 +22,7 @@ import struct
 
 from krita import Selection
 
-
-def _upsample_assignments(assignments, src_w, src_h, dst_w, dst_h):
-    """Nearest-neighbour upsample a flat assignment bytearray to (dst_w, dst_h)."""
-    if src_w == dst_w and src_h == dst_h:
-        return assignments
-    x_scale = src_w / dst_w
-    y_scale = src_h / dst_h
-    # Precompute lookup tables — avoids repeated float math in the inner loop
-    x_map = [min(int(x * x_scale), src_w - 1) for x in range(dst_w)]
-    y_map = [min(int(y * y_scale), src_h - 1) * src_w for y in range(dst_h)]
-    out = bytearray(dst_w * dst_h)
-    pos = 0
-    for sy_off in y_map:
-        for sx in x_map:
-            out[pos] = assignments[sy_off + sx]
-            pos += 1
-    return out
+from .pipeline import assign_pixels_to_palette, read_document_pixels
 
 
 def _lab_to_krita16(L: float, a: float, b: float) -> bytes:
@@ -52,6 +36,11 @@ def _lab_to_krita16(L: float, a: float, b: float) -> bytes:
 def build_separation_layers(doc, result: dict) -> int:
     """Build one group layer per palette colour.
 
+    Reads full-resolution pixels from the document and re-assigns each pixel
+    to the nearest palette colour from the proxy run.  This matches the PS
+    ProductionWorker behaviour and eliminates the blocky upsampling artefacts
+    that would result from nearest-neighbour scaling of the 800px proxy mask.
+
     result: dict from pyreveal.posterize_image()
     Returns number of colour layers created.
     """
@@ -59,14 +48,12 @@ def build_separation_layers(doc, result: dict) -> int:
 
     palette_rgb = result['palette']
     palette_lab = result['palette_lab']
-    proxy_w     = result.get('_proxy_w', doc.width())
-    proxy_h     = result.get('_proxy_h', doc.height())
     width       = doc.width()
     height      = doc.height()
 
-    assignments = _upsample_assignments(
-        result['assignments'], proxy_w, proxy_h, width, height
-    )
+    # Re-assign at full document resolution using the proxy palette.
+    full_pixels, _, _ = read_document_pixels(doc)
+    assignments = assign_pixels_to_palette(full_pixels, palette_lab)
 
     root  = doc.rootNode()
     group = doc.createNode('Reveal Separation', 'grouplayer')

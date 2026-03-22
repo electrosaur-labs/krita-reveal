@@ -48,6 +48,71 @@ def read_document_pixels(doc, node=None):
     return krita_pixels_to_pyreveal(raw, width * height), width, height
 
 
+def assign_pixels_to_palette(pixels: list, palette_lab: list) -> bytearray:
+    """Assign each engine16 pixel to its nearest palette_lab colour.
+
+    Uses numpy when available (fast path: ~1s for 22MP × 10 colours).
+    Falls back to pure Python otherwise.
+
+    pixels:      flat list of engine16 Lab values (3 per pixel)
+    palette_lab: list of {L, a, b} dicts in perceptual Lab
+    Returns:     bytearray of palette indices (one per pixel)
+    """
+    n_pixels = len(pixels) // 3
+    n_colors = len(palette_lab)
+    CHUNK    = 200_000  # pixels per numpy chunk (~7 MB for 10 colours)
+
+    try:
+        import numpy as np
+
+        # Build palette matrix (K, 3) in perceptual Lab
+        pal = np.array(
+            [[c['L'], c['a'], c['b']] for c in palette_lab],
+            dtype=np.float32,
+        )  # (K, 3)
+
+        # Decode engine16 → perceptual Lab in one vectorised pass
+        arr = np.array(pixels, dtype=np.float32).reshape(-1, 3)
+        arr[:, 0] /= 327.68                    # L: 0-32768 → 0-100
+        arr[:, 1:] = (arr[:, 1:] - 16384) / 128  # a/b: 0-32768, neutral=16384
+
+        # Chunked nearest-neighbour to keep peak memory bounded
+        out = np.empty(n_pixels, dtype=np.uint8)
+        for start in range(0, n_pixels, CHUNK):
+            end    = min(start + CHUNK, n_pixels)
+            chunk  = arr[start:end]  # (C, 3)
+            # (C, K) squared distances — broadcast without materialising (C, K, 3)
+            dL = chunk[:, 0:1] - pal[:, 0]  # (C, K)
+            da = chunk[:, 1:2] - pal[:, 1]
+            db = chunk[:, 2:3] - pal[:, 2]
+            dist = dL * dL + da * da + db * db
+            out[start:end] = np.argmin(dist, axis=1)
+
+        return bytearray(out.tolist())
+
+    except ImportError:
+        # Pure-Python fallback — slow for large images but always correct
+        L_SCALE = 327.68
+        AB_NEUTRAL = 16384
+        AB_SCALE = 128.0
+        pal_tuples = [(c['L'], c['a'], c['b']) for c in palette_lab]
+        out = bytearray(n_pixels)
+        for i in range(n_pixels):
+            off = i * 3
+            L = pixels[off]     / L_SCALE
+            a = (pixels[off+1] - AB_NEUTRAL) / AB_SCALE
+            b = (pixels[off+2] - AB_NEUTRAL) / AB_SCALE
+            best_d = float('inf')
+            best_j = 0
+            for j, (pL, pa, pb) in enumerate(pal_tuples):
+                d = (L-pL)**2 + (a-pa)**2 + (b-pb)**2
+                if d < best_d:
+                    best_d = d
+                    best_j = j
+            out[i] = best_j
+        return out
+
+
 def downsample_pixels(pixels: list, width: int, height: int, max_dim: int = 800):
     """Nearest-neighbour downsample to fit within max_dim × max_dim."""
     scale = min(1.0, max_dim / max(width, height))

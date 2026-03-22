@@ -641,23 +641,23 @@ def _posterize_stencil(pixels, width: int, height: int, target_colors: int, opti
 def _posterize_distilled(pixels, width: int, height: int, target_colors: int, options: dict) -> dict:
     """Over-quantize then distill to target_colors via furthest-point sampling.
 
-    Uses the mk1.0 reveal engine for over-quantization. The JS reference uses
-    reveal-mk1.5, but Python's mk1.0 is more faithfully ported and produces
-    intermediate palettes that are closer to the JS oracle on warm images.
+    Uses the mk1.5 engine for over-quantization, matching the JS reference
+    (distilledPosterize calls reveal-mk1.5 with snapThreshold=0, densityFloor=0,
+    enablePaletteReduction=false). The k-means refinement pass in mk1.5 produces
+    more coherent clusters, resulting in smoother final assignments.
     """
     over_k = over_quantize_count(target_colors)
 
-    # Over-quantize with mk1.0: disable all merging so we get full hue resolution.
+    # Over-quantize with mk1.5: disable all merging so we get full hue resolution.
     # snap_threshold=0 and density_floor=0 prevent premature color collapse.
     over_options = {
         **options,
-        'engine_type':              'reveal',
         'enable_hue_gap_analysis':  False,
         'enable_palette_reduction': False,
         'snap_threshold':           0,
         'density_floor':            0,
     }
-    over_result = _posterize_reveal_mk1_0(pixels, width, height, over_k, over_options)
+    over_result = posterize_mk15(pixels, width, height, over_k, over_options)
 
     over_palette = over_result['palette_lab']
     assignments  = over_result['assignments']
