@@ -143,11 +143,10 @@ class RevealCommandProcessor(QObject):
         self._state.set_running(f'Separating {dw}×{dh}…')
 
         options = {
-            # Use archetype-driven mode (auto-match); mechanical knobs are NOT
-            # injected here so the archetype's own min_volume / speckle_rescue /
-            # shadow_clamp values drive the first run.  The UI sliders will be
-            # updated from _matched_archetype once the result arrives.
-            '_archetype_id':          '__auto__',
+            # Use archetype-driven mode.  If the frontend sends an explicit
+            # archetype_id (re-separate while an archetype is already selected),
+            # honour it so the user's choice is preserved.  Otherwise auto-match.
+            '_archetype_id':          params.get('archetype_id', '__auto__'),
             # Engine selection
             'engine_type':            params.get('engine_type', 'reveal'),
             'substrate_mode':         params.get('substrate_mode', 'none'),

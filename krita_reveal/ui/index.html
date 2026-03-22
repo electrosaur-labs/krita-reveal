@@ -1743,10 +1743,16 @@ function startSeparation() {
     btnBuild.style.display = 'none';
     previewCont.classList.remove('has-image');
 
+    const sepParams = collectParams();
+    // Preserve the currently selected archetype across re-separations.
+    // On the very first run selArchetype is empty, so we fall through to __auto__.
+    const curArch = selArchetype.value;
+    if (curArch && curArch !== '__others_toggle__') sepParams.archetype_id = curArch;
+
     fetch('/api/separate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(collectParams()),
+        body: JSON.stringify(sepParams),
     }).then(() => {
         setStatus('Separating…', false);
         if (pollTimer) clearTimeout(pollTimer);
