@@ -93,38 +93,32 @@ def build_separation_layers(doc, result: dict) -> int:
     else:
         assignments = result['assignments']
 
-    # Wrap all layer creation in a single undo macro so the entire build
-    # appears as one "Reveal Separation" entry in Krita's undo history.
-    doc.beginUndoMacro('Reveal Separation')
-    try:
-        for i, (rgb, lab) in enumerate(zip(palette_rgb, palette_lab)):
-            r, g, b = rgb['r'], rgb['g'], rgb['b']
-            hex_name = f'#{r:02X}{g:02X}{b:02X}'
+    for i, (rgb, lab) in enumerate(zip(palette_rgb, palette_lab)):
+        r, g, b = rgb['r'], rgb['g'], rgb['b']
+        hex_name = f'#{r:02X}{g:02X}{b:02X}'
 
-            color_group = doc.createGroupLayer(hex_name)
-            fill  = doc.createNode('fill', 'paintlayer')
-            tmask = doc.createTransparencyMask('mask')
+        color_group = doc.createGroupLayer(hex_name)
+        fill  = doc.createNode('fill', 'paintlayer')
+        tmask = doc.createTransparencyMask('mask')
 
-            # Top-down attachment
-            group.addChildNode(color_group, None)
-            color_group.addChildNode(fill, None)
-            fill.addChildNode(tmask, None)
+        # Top-down attachment
+        group.addChildNode(color_group, None)
+        color_group.addChildNode(fill, None)
+        fill.addChildNode(tmask, None)
 
-            # Fill: solid Lab colour
-            pixel = _lab_to_krita16(lab['L'], lab['a'], lab['b'])
-            fill.setPixelData(pixel * pixel_count, 0, 0, width, height)
+        # Fill: solid Lab colour
+        pixel = _lab_to_krita16(lab['L'], lab['a'], lab['b'])
+        fill.setPixelData(pixel * pixel_count, 0, 0, width, height)
 
-            # Generate and despeckle mask at full document resolution
-            mask_bytes = generate_mask(assignments, i, width, height)
-            if speckle_threshold > 0:
-                despeckle_mask(mask_bytes, width, height, speckle_threshold)
+        # Generate and despeckle mask at full document resolution
+        mask_bytes = generate_mask(assignments, i, width, height)
+        if speckle_threshold > 0:
+            despeckle_mask(mask_bytes, width, height, speckle_threshold)
 
-            sel = Selection()
-            sel.setPixelData(bytes(mask_bytes), 0, 0, width, height)
-            tmask.setSelection(sel)
+        sel = Selection()
+        sel.setPixelData(bytes(mask_bytes), 0, 0, width, height)
+        tmask.setSelection(sel)
 
-        doc.refreshProjection()
-    finally:
-        doc.endUndoMacro()
+    doc.refreshProjection()
 
     return len(palette_rgb)
