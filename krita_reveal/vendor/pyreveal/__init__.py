@@ -167,3 +167,18 @@ def generate_mask(color_indices, color_index: int, width: int, height: int) -> b
 def calculate_entropy(lab_data, width: int, height: int, sample_rate: int = 4) -> float:
     """Measure local variance in 16-bit Lab data to detect noise (0-100)."""
     return calculate_entropy_score_lab(lab_data, width, height, sample_rate)
+
+
+# ── Tool 6: Despeckle Mask ────────────────────────────────────────────────────
+
+def despeckle_mask(mask: bytearray, width: int, height: int, threshold: int = 5) -> dict:
+    """Remove isolated pixel clusters smaller than threshold from a layer mask.
+
+    Modifies mask in-place (same bytearray returned by generate_mask).
+    Uses 8-connected DFS to find connected components; clusters with fewer
+    than threshold pixels are zeroed out.
+
+    threshold: minimum cluster size to keep (default 5, matches JS default).
+    Returns {'clusters_removed': int, 'pixels_removed': int}.
+    """
+    return SeparationEngine.despeckle_mask(mask, width, height, threshold)

@@ -105,7 +105,11 @@ def posterize_mk15(pixels, width: int, height: int,
             L, a, b = 100.0, 0.0, 0.0
         lab_pixels.extend([L, a, b])
 
-    # Optional: hard chroma gate
+    # Optional: hard chroma gate — zeroes a/b for pixels below the threshold.
+    # Uses 'chroma_gate_threshold' key (JS: options.chromaGateThreshold).
+    # NOTE: 'chroma_gate' is NOT used here — it is the JS chromaGate cWeight
+    # multiplier, already applied by ParameterGenerator before reaching this
+    # engine.  chromaGateThreshold is never set by any archetype (defaults to 0).
     chroma_gate_threshold = options.get('chroma_gate_threshold', 0)
     if chroma_gate_threshold > 0:
         for i in range(0, len(lab_pixels), 3):

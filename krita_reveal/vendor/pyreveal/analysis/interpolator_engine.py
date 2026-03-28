@@ -166,6 +166,72 @@ class InterpolatorEngine:
 
 
 # ---------------------------------------------------------------------------
+# camelCase → snake_case config conversion
+# (used by pipeline.py and parity tests to feed interpolator output into
+#  ParameterGenerator.to_engine_options)
+# ---------------------------------------------------------------------------
+
+_CAMEL_TO_SNAKE: dict[str, str] = {
+    'lWeight':                     'l_weight',
+    'cWeight':                     'c_weight',
+    'bWeight':                     'b_weight',
+    'blackBias':                   'black_bias',
+    'vibrancyBoost':               'vibrancy_boost',
+    'vibrancyMode':                'vibrancy_mode',
+    'highlightThreshold':          'highlight_threshold',
+    'highlightBoost':              'highlight_boost',
+    'paletteReduction':            'palette_reduction',
+    'enablePaletteReduction':      'enable_palette_reduction',
+    'substrateTolerance':          'substrate_tolerance',
+    'substrateMode':               'substrate_mode',
+    'hueLockAngle':                'hue_lock_angle',
+    'enableHueGapAnalysis':        'enable_hue_gap_analysis',
+    'shadowPoint':                 'shadow_point',
+    'colorMode':                   'color_mode',
+    'preserveWhite':               'preserve_white',
+    'preserveBlack':               'preserve_black',
+    'ignoreTransparent':           'ignore_transparent',
+    'centroidStrategy':            'centroid_strategy',
+    'splitMode':                   'split_mode',
+    'quantizer':                   'quantizer',
+    'refinementPasses':            'refinement_passes',
+    'neutralSovereigntyThreshold': 'neutral_sovereignty_threshold',
+    'chromaGate':                  'chroma_gate',
+    'detailRescue':                'detail_rescue',
+    'speckleRescue':               'speckle_rescue',
+    'medianPass':                  'median_pass',
+    'minVolume':                   'min_volume',
+    'shadowClamp':                 'shadow_clamp',
+    'shadowChromaGateL':           'shadow_chroma_gate_l',
+    'distanceMetric':              'distance_metric',
+    'ditherType':                  'dither_type',
+    'maxColors':                   'target_colors',
+    'preprocessingIntensity':      'preprocessing_intensity',
+}
+
+
+def to_pyreveal_config(interp_params: dict, dna: dict | None = None) -> dict:
+    """Convert InterpolatorEngine camelCase output to the snake_case config dict
+    expected by ParameterGenerator.to_engine_options().
+
+    The returned config sets engine_type='distilled' (Chameleon always uses
+    distilled) and neutral_centroid_clamp_threshold=0.5 (fixed safety floor).
+    Callers may override either field after the call.
+    """
+    config: dict = {}
+    for camel, snake in _CAMEL_TO_SNAKE.items():
+        val = interp_params.get(camel)
+        if val is not None:
+            config[snake] = val
+    config['engine_type'] = 'distilled'
+    config['neutral_centroid_clamp_threshold'] = 0.5
+    config.setdefault('preprocessing', {'enabled': False})
+    if dna is not None:
+        config['range_clamp'] = [dna.get('min_l', 0), dna.get('max_l', 100)]
+    return config
+
+
+# ---------------------------------------------------------------------------
 # Module-level singleton (lazy-loaded)
 # ---------------------------------------------------------------------------
 
