@@ -48,6 +48,82 @@ def read_document_pixels(doc, node=None):
     return krita_pixels_to_pyreveal(raw, width * height), width, height
 
 
+def read_document_raw(doc):
+    """Read raw Krita LABA U16 bytes from the document projection.
+
+    Fast — just a C++ memcopy from Krita. Safe to call on the Qt main thread.
+    Returns (raw_bytes, width, height).
+    """
+    width  = doc.width()
+    height = doc.height()
+    raw    = bytes(doc.rootNode().projectionPixelData(0, 0, width, height))
+    return raw, width, height
+
+
+def raw_to_assignments(raw: bytes, pixel_count: int, palette_lab: list) -> bytearray:
+    """Decode raw Krita LABA U16 bytes and assign each pixel to nearest palette colour.
+
+    Combines pixel decode + nearest-colour assignment in one pass.
+    Safe to call from a background thread (no Krita API access).
+
+    numpy fast path: ~2-4s for 22MP × 10 colours.
+    Pure-Python fallback via array module: slower, but non-blocking.
+    """
+    try:
+        import numpy as np
+
+        # Parse raw bytes as (N, 4) uint16 LABA, keep only LAB
+        arr = np.frombuffer(raw, dtype=np.uint16).reshape(-1, 4)[:, :3].astype(np.float32)
+        # engine16: L>>1, a>>1, b>>1  (frombuffer gives Krita U16, divide by 2)
+        arr /= 2.0
+        # Convert engine16 → perceptual Lab
+        arr[:, 0] /= 327.68
+        arr[:, 1:] = (arr[:, 1:] - 16384) / 128
+
+        pal = np.array([[c['L'], c['a'], c['b']] for c in palette_lab], dtype=np.float32)
+
+        CHUNK = 200_000
+        out = np.empty(pixel_count, dtype=np.uint8)
+        for start in range(0, pixel_count, CHUNK):
+            end   = min(start + CHUNK, pixel_count)
+            chunk = arr[start:end]
+            dL = chunk[:, 0:1] - pal[:, 0]
+            da = chunk[:, 1:2] - pal[:, 1]
+            db = chunk[:, 2:3] - pal[:, 2]
+            out[start:end] = np.argmin(dL*dL + da*da + db*db, axis=1)
+        return bytearray(out.tolist())
+
+    except ImportError:
+        import array as _array
+        buf = _array.array('H')
+        buf.frombytes(raw)
+
+        # Palette in engine16 space (Krita U16 >> 1 → engine16)
+        pal = [
+            (round(c['L'] * 327.68), round(c['a'] * 128 + 16384), round(c['b'] * 128 + 16384))
+            for c in palette_lab
+        ]
+        K = len(pal)
+
+        out = bytearray(pixel_count)
+        for i in range(pixel_count):
+            off = i * 4
+            L = buf[off]   >> 1
+            a = buf[off+1] >> 1
+            b = buf[off+2] >> 1
+            best_d = 0x7FFFFFFFFFFFFFFF
+            best_j = 0
+            for j in range(K):
+                pL, pa, pb = pal[j]
+                dL = L - pL; da = a - pa; db = b - pb
+                d = dL*dL + da*da + db*db
+                if d < best_d:
+                    best_d = d
+                    best_j = j
+            out[i] = best_j
+        return out
+
+
 def assign_pixels_to_palette(pixels: list, palette_lab: list) -> bytearray:
     """Assign each engine16 pixel to its nearest palette_lab colour.
 
@@ -111,6 +187,44 @@ def assign_pixels_to_palette(pixels: list, palette_lab: list) -> bytearray:
                     best_j = j
             out[i] = best_j
         return out
+
+
+def downsample_pixels_smooth(raw: bytes, width: int, height: int, max_dim: int = 800):
+    """Downsample raw Krita LABA U16 bytes using Qt SmoothTransformation (bicubic).
+
+    Matches the quality of PS's imaging.getPixels(targetSize=...) path — each
+    channel is spatially averaged, producing smoother palette centroids than NN.
+
+    Maps Krita LABA U16 → QImage.Format_RGBA64 (L=R, a=G, b=B, alpha=A),
+    scales with SmoothTransformation, reads back raw bytes, decodes to engine16.
+    Channel semantics are irrelevant for a spatial average.
+
+    Falls back to NN downsample if Qt Format_RGBA64 is unavailable.
+
+    Returns (pixels, new_width, new_height) in engine16 encoding.
+    """
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtGui import QImage
+
+    scale = min(1.0, max_dim / max(width, height))
+    if scale >= 1.0:
+        return krita_pixels_to_pyreveal(raw, width * height), width, height
+
+    new_w = max(1, round(width * scale))
+    new_h = max(1, round(height * scale))
+
+    try:
+        # Wrap raw LABA U16 in a Format_RGBA64 QImage (8 bytes/pixel, no copy).
+        # alpha = 65535 (fully opaque) throughout, so premultiplication is a no-op.
+        img = QImage(raw, width, height, width * 8, QImage.Format_RGBA64)
+        scaled = img.scaled(new_w, new_h, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        ptr = scaled.bits()
+        ptr.setsize(new_w * new_h * 8)
+        return krita_pixels_to_pyreveal(bytes(ptr), new_w * new_h), new_w, new_h
+    except Exception:
+        # Fallback: decode full-res then NN downsample
+        pixels = krita_pixels_to_pyreveal(raw, width * height)
+        return downsample_pixels(pixels, width, height, max_dim)
 
 
 def downsample_pixels(pixels: list, width: int, height: int, max_dim: int = 800):
@@ -400,6 +514,24 @@ def run_separation(pixels: list, width: int, height: int,
         pyreveal.preprocess_image(pixels, width, height, config['preprocessing'])
 
     result = pyreveal.posterize_image(pixels, width, height, target_colors, params)
+
+    # Re-map pixels through the separation pass (nearest-neighbour + optional dithering),
+    # matching JS separateImage / mapPixelsToPaletteAsync.
+    # posterize_image returns its internal quantization assignments; these are coarser
+    # than a proper per-pixel nearest-neighbour remap and lack dithering entirely.
+    from pyreveal.engines.separation import SeparationEngine as _SE
+    sep_assignments = _SE.map_pixels_to_palette(
+        pixels,
+        result['palette_lab'],
+        width,
+        height,
+        {
+            'dither_type':     params.get('dither_type', 'none'),
+            'distance_metric': params.get('distance_metric', 'cie76'),
+            'mesh_count':      options.get('mesh_size') or None,
+        },
+    )
+    result['assignments'] = sep_assignments
 
     # Attach archetype metadata for the UI — all control values round-trip
     result['_matched_archetype'] = {

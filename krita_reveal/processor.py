@@ -15,8 +15,9 @@ from PyQt5.QtCore import (
 from PyQt5.QtGui import QImage
 
 from .pipeline import (
-    downsample_pixels, make_original_rgb, make_posterized_rgb,
-    make_solo_rgb, read_document_pixels, run_separation,
+    downsample_pixels, downsample_pixels_smooth, make_original_rgb,
+    make_posterized_rgb, make_solo_rgb, read_document_pixels,
+    read_document_raw, run_separation,
 )
 from .layer_builder import build_separation_layers
 
@@ -131,8 +132,8 @@ class RevealCommandProcessor(QObject):
 
         self._state.set_running('Reading pixels…')
         try:
-            pixels, w, h   = read_document_pixels(doc)
-            pixels, dw, dh = downsample_pixels(pixels, w, h, max_dim=int(params.get('proxy_resolution', 800)))
+            raw, w, h      = read_document_raw(doc)
+            pixels, dw, dh = downsample_pixels_smooth(raw, w, h, max_dim=int(params.get('proxy_resolution', 800)))
         except Exception as e:
             self._state.set_error(f'Read error: {e}')
             return
@@ -152,12 +153,14 @@ class RevealCommandProcessor(QObject):
             'substrate_mode':         params.get('substrate_mode', 'none'),
             'preserve_white':         bool(params.get('preserve_white', False)),
             'preserve_black':         bool(params.get('preserve_black', False)),
-            # Output
-            'dither_type':            params.get('dither_type', 'none'),
+            # dither_type intentionally omitted — archetype drives it (e.g. 'atkinson').
+            # The UI is updated from _matched_archetype after result; reruns use _do_rerun.
             # Algorithm
             'distance_metric':        params.get('distance_metric', 'cie76'),
-            'strategy':               params.get('strategy', 'ROBUST_SALIENCY'),
+            'centroid_strategy':      params.get('centroid_strategy', 'ROBUST_SALIENCY'),
             'split_mode':             params.get('split_mode', 'median'),
+            'color_mode':             params.get('color_mode', 'color'),
+            'quantizer':              params.get('quantizer', 'wu'),
             # Saturation
             'vibrancy_boost':         float(params.get('vibrancy_boost', 1.4)),
             'vibrancy_mode':          params.get('vibrancy_mode', 'aggressive'),
@@ -172,6 +175,16 @@ class RevealCommandProcessor(QObject):
             'black_bias':             float(params.get('black_bias', 3.0)),
             # Tone
             'shadow_point':           float(params.get('shadow_point', 15)),
+            # Advanced color shaping
+            'neutral_sovereignty_threshold': float(params.get('neutral_sovereignty_threshold', 0)),
+            'chroma_gate':            float(params.get('chroma_gate', 1.0)),
+            'highlight_threshold':    float(params.get('highlight_threshold', 90)),
+            'highlight_boost':        float(params.get('highlight_boost', 1.5)),
+            'detail_rescue':          float(params.get('detail_rescue', 0)),
+            'substrate_tolerance':    float(params.get('substrate_tolerance', 2.0)),
+            # Flags
+            'median_pass':            bool(params.get('median_pass', False)),
+            'ignore_transparent':     bool(params.get('ignore_transparent', True)),
         }
         # Pre-smoothing: store for use after analyze_image
         preprocessing_intensity = params.get('preprocessing', 'off')
