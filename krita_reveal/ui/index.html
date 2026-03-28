@@ -1329,6 +1329,7 @@ selArchetype.addEventListener('change', () => {
     othersExpanded = false;
     selArchetype.dataset.lastId = archId;
     isRunning = true;
+    setBusy(true);
     hasResult = false;
     previewCont.classList.remove('has-image');
     grid.innerHTML = '';
@@ -1461,15 +1462,11 @@ function getSwatchIdx(e) {
 }
 
 function onSwatchClick(e) {
-    if (e.altKey) return;  // handled by mousedown
+    if (e.altKey || e.ctrlKey) return;  // handled by mousedown
     const idx = getSwatchIdx(e);
     if (idx < 0) return;
     const c = paletteData[idx];
     if (!c || c.is_deleted) return;  // no action on deleted swatches
-    if (e.ctrlKey) {
-        cpOpen(idx, c.hex, e.target.closest('.surgeon-swatch'));
-        return;
-    }
     const deselect = selectedIdx === idx;
     document.querySelectorAll('.surgeon-swatch').forEach(s =>
         s.classList.remove('surgeon-selected'));
@@ -1484,6 +1481,17 @@ function onSwatchClick(e) {
 }
 
 function onSwatchAltClick(e) {
+    if (e.ctrlKey && !e.altKey) {
+        // Ctrl+click: open colour picker — handled in mousedown so it fires
+        // before the OS/browser context menu (which swallows the click event).
+        const idx = getSwatchIdx(e);
+        if (idx < 0) return;
+        e.preventDefault();
+        const c = paletteData[idx];
+        if (!c || c.is_deleted) return;
+        cpOpen(idx, c.hex, e.target.closest('.surgeon-swatch'));
+        return;
+    }
     if (!e.altKey) return;
     const idx = getSwatchIdx(e);
     if (idx < 0) return;
@@ -1705,6 +1713,10 @@ function setStatus(msg, isError) {
     sideStatus.className   = isError ? 'error' : '';
 }
 
+function setBusy(busy) {
+    document.body.style.cursor = busy ? 'wait' : '';
+}
+
 // ── Poll ─────────────────────────────────────────────────────────────────────
 function poll() {
     fetch('/api/status')
@@ -1715,6 +1727,7 @@ function poll() {
                 pollTimer = setTimeout(poll, 500);
             } else if (data.status === 'done' && !hasResult) {
                 isRunning = false;
+                setBusy(false);
                 hasResult = true;
                 previewCont.classList.add('has-image');
                 refreshPreview('post');
@@ -1726,6 +1739,7 @@ function poll() {
                 btnBuild.style.display = 'block';
             } else if (data.status === 'error') {
                 isRunning = false;
+                setBusy(false);
             }
         })
         .catch(() => { pollTimer = setTimeout(poll, 1000); });
@@ -1735,6 +1749,7 @@ function poll() {
 function startSeparation() {
     if (isRunning) return;
     isRunning = true;
+    setBusy(true);
     hasResult = false; selectedIdx = -1; showingOrig = false;
     grid.innerHTML = '';
     paletteData = [];
@@ -1768,6 +1783,7 @@ function scheduleRerun() {
         if (!hasResult) return;
         const archId = selArchetype.value || '__auto__';
         isRunning = true;
+        setBusy(true);
         hasResult = false;
         previewCont.classList.remove('has-image');
         grid.innerHTML = ''; paletteData = [];
@@ -1816,10 +1832,12 @@ document.getElementById('k-proxy-res').addEventListener('change', () => {
 // ── Build Layers ─────────────────────────────────────────────────────────────
 btnBuild.addEventListener('click', () => {
     setStatus('Building layers…', false);
+    setBusy(true);
     fetch('/api/build', {method: 'POST'})
         .then(() => fetch('/api/status'))
         .then(r => r.json())
         .then(data => {
+            setBusy(false);
             setStatus(data.message, data.is_error);
             if (!data.is_error) setTimeout(() => window.close(), 800);
         });

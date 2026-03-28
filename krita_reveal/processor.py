@@ -413,8 +413,23 @@ class RevealCommandProcessor(QObject):
         if not doc:
             self._state.set_message('No active document.', is_error=True)
             return
+        # Bring Krita to the foreground before the build starts so the user
+        # can see progress and the busy cursor applies to the right window.
+        try:
+            win = Krita.instance().activeWindow()
+            if win:
+                qw = win.qwindow()
+                qw.activateWindow()
+                qw.raise_()
+        except Exception:
+            pass
+        from PyQt5.QtCore import Qt
+        from PyQt5.QtWidgets import QApplication
+        QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             n = build_separation_layers(doc, self._result)
             self._state.set_message(f'Created {n} layers.')
         except Exception as e:
             self._state.set_message(f'Layer error: {e}', is_error=True)
+        finally:
+            QApplication.restoreOverrideCursor()
