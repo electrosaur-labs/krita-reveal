@@ -1016,8 +1016,8 @@ const surgeon       = document.getElementById('palette-surgeon');
 const grid          = document.getElementById('surgeon-grid');
 grid.addEventListener('click',     onSwatchClick,    false);
 grid.addEventListener('mousedown', onSwatchAltClick, false);
-const btnSep        = document.getElementById('btn-separate');
-const btnBuild      = document.getElementById('btn-build');
+const btnSep         = document.getElementById('btn-separate');
+const btnBuild       = document.getElementById('btn-build');
 
 const archetypeBar  = document.getElementById('archetype-bar');
 const selArchetype  = document.getElementById('sel-archetype');
@@ -1824,6 +1824,7 @@ btnBuild.addEventListener('click', () => {
             if (!data.is_error) setTimeout(() => window.close(), 800);
         });
 });
+
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 fetch('/api/status')

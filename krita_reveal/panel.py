@@ -20,7 +20,7 @@ from .pipeline import (
     read_document_pixels, downsample_pixels, run_separation,
     make_original_rgb, make_posterized_rgb, make_solo_rgb,
 )
-from .layer_builder import build_separation_layers
+from .layer_builder import build_separation_layers, build_debug_comparison
 
 PREVIEW_MAX = 512
 
@@ -226,6 +226,11 @@ class RevealPanel(QWidget):
         self._build_btn.clicked.connect(self._on_build_layers)
         lv.addWidget(self._build_btn)
 
+        self._debug_btn = QPushButton('Debug: Compare Assignments')
+        self._debug_btn.setVisible(False)
+        self._debug_btn.clicked.connect(self._on_debug_compare)
+        lv.addWidget(self._debug_btn)
+
         root.addWidget(left, stretch=3)
 
         # ── Right column: knobs + button + status ─────────────────────────────
@@ -299,6 +304,7 @@ class RevealPanel(QWidget):
 
         self._btn.setEnabled(False)
         self._build_btn.setVisible(False)
+        self._debug_btn.setVisible(False)
         self._clear_swatches()
         self._preview.clear_images()
         self._preview_info.setText('')
@@ -348,6 +354,7 @@ class RevealPanel(QWidget):
 
         self._show_swatches(result['palette'], result.get('_coverage', []))
         self._build_btn.setVisible(True)
+        self._debug_btn.setVisible(True)
 
     def _on_error(self, msg):
         self._btn.setEnabled(True)
@@ -367,6 +374,20 @@ class RevealPanel(QWidget):
             self.window().hide()
         except Exception as e:
             self._set_status(f'Layer error: {e}', error=True)
+
+    def _on_debug_compare(self):
+        if not self._result:
+            return
+        doc = Krita.instance().activeDocument()
+        if not doc:
+            self._set_status('No active document.', error=True)
+            return
+        self._set_status('Building debug comparison layers…')
+        try:
+            msg = build_debug_comparison(doc, self._result)
+            self._set_status(msg)
+        except Exception as e:
+            self._set_status(f'Debug error: {e}', error=True)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 

@@ -160,6 +160,9 @@ class _Handler(BaseHTTPRequestHandler):
         elif path == '/api/build':
             self._queue.put({'type': 'build'})
             self._serve_json({'ok': True})
+        elif path == '/api/debug-compare':
+            self._queue.put({'type': 'debug-compare'})
+            self._serve_json({'ok': True})
         elif path == '/api/override':
             old_ver = self._state.preview_version
             self._queue.put({'type': 'override', 'params': params})
