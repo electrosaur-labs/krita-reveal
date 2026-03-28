@@ -427,7 +427,11 @@ class RevealCommandProcessor(QObject):
         from PyQt5.QtWidgets import QApplication
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
-            n = build_separation_layers(doc, self._result)
+            def _progress(msg):
+                self._state.set_message(msg)
+                QApplication.processEvents()
+
+            n = build_separation_layers(doc, self._result, on_progress=_progress)
             self._state.set_message(f'Created {n} layers.')
         except Exception as e:
             self._state.set_message(f'Layer error: {e}', is_error=True)
