@@ -425,6 +425,7 @@ class RevealCommandProcessor(QObject):
             pass
         from PyQt5.QtCore import Qt
         from PyQt5.QtWidgets import QApplication
+        self._state.set_running('Building layers…')
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             def _progress(msg):
@@ -432,8 +433,8 @@ class RevealCommandProcessor(QObject):
                 QApplication.processEvents()
 
             n = build_separation_layers(doc, self._result, on_progress=_progress)
-            self._state.set_message(f'Created {n} layers.')
+            self._state.set_build_done(f'Created {n} layers.')
         except Exception as e:
-            self._state.set_message(f'Layer error: {e}', is_error=True)
+            self._state.set_build_done(f'Layer error: {e}', is_error=True)
         finally:
             QApplication.restoreOverrideCursor()

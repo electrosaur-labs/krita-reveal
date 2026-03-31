@@ -83,6 +83,13 @@ class RevealState:
             self.message  = msg
             self.is_error = is_error
 
+    def set_build_done(self, msg, is_error=False):
+        """Transition back to 'done' after a build completes (or fails)."""
+        with self._lock:
+            self.status   = 'done'
+            self.message  = msg
+            self.is_error = is_error
+
     def get_status(self):
         with self._lock:
             return {

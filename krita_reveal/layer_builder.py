@@ -68,59 +68,117 @@ def build_separation_layers(doc, result: dict, on_progress=None) -> int:
     # ── Full-resolution separation ────────────────────────────────────────
     # Run before creating any layers so no phantom group entry appears in
     # Krita's undo history during the slow separation pass.
+    # The separation itself runs in a daemon thread so the main thread can
+    # pump Qt events, keeping the Chrome status and Krita UI responsive.
     if proxy_w != width or proxy_h != height:
+        import threading
+        import time as _time
+
         if on_progress:
-            on_progress(f'Separating at full resolution ({width}×{height})…')
+            on_progress(f'Reading pixels ({width}×{height})…')
+
         from .pipeline import read_document_pixels
         full_pixels, _, _ = read_document_pixels(doc)
-        assignments = SeparationEngine.map_pixels_to_palette(
-            full_pixels,
-            palette_lab,
-            width,
-            height,
-            {
-                'dither_type':     matched.get('dither_type', 'none'),
-                'distance_metric': matched.get('distance_metric', 'cie76'),
-            },
-        )
+
+        sep_result = [None]
+        sep_error  = [None]
+
+        def _run_separation():
+            try:
+                sep_result[0] = SeparationEngine.map_pixels_to_palette(
+                    full_pixels,
+                    palette_lab,
+                    width,
+                    height,
+                    {
+                        'dither_type':     matched.get('dither_type', 'none'),
+                        'distance_metric': matched.get('distance_metric', 'cie76'),
+                    },
+                )
+            except Exception as e:
+                sep_error[0] = e
+
+        sep_thread = threading.Thread(target=_run_separation, daemon=True)
+        sep_thread.start()
+
+        if on_progress:
+            from PyQt5.QtWidgets import QApplication
+            t_start = _time.time()
+            while sep_thread.is_alive():
+                QApplication.processEvents()
+                _time.sleep(0.1)
+                elapsed = int(_time.time() - t_start)
+                on_progress(f'Separating colours… {elapsed}s')
+
+        sep_thread.join()
+
+        if sep_error[0]:
+            raise sep_error[0]
+        assignments = sep_result[0]
     else:
         assignments = result['assignments']
 
     # ── Layer creation ────────────────────────────────────────────────────
-    # Create the group and add layers one by one, refreshing after each so
-    # the user sees the image build up progressively.
+    # Pre-compute all masks now (fast: numpy vectorised op per colour).
+    # Then create layers one at a time via QTimer.singleShot so each
+    # addChildNode + refreshProjection returns to the *outer* Qt event loop
+    # before the next layer starts — this is what makes Krita's layer panel
+    # and canvas update progressively instead of all at once.
+
+    masks = []
+    for i in range(total):
+        m = generate_mask(assignments, i, width, height)
+        if speckle_threshold > 0:
+            despeckle_mask(m, width, height, speckle_threshold)
+        masks.append(m)
+
     root  = doc.rootNode()
     group = doc.createNode('Reveal Separation', 'grouplayer')
     root.addChildNode(group, None)
+    doc.refreshProjection()
 
-    for i, (rgb, lab) in enumerate(zip(palette_rgb, palette_lab)):
-        r, g, b = rgb['r'], rgb['g'], rgb['b']
-        hex_name = f'#{r:02X}{g:02X}{b:02X}'
+    from PyQt5.QtCore import QEventLoop, QTimer
+    from PyQt5.QtWidgets import QApplication
+
+    wait_loop  = QEventLoop()
+    items      = list(zip(palette_rgb, palette_lab, masks))
+    created    = [0]
+
+    def _create_next():
+        if not items:
+            wait_loop.quit()
+            return
+
+        i              = created[0]
+        rgb, lab, mask = items.pop(0)
+        r, g, b        = rgb['r'], rgb['g'], rgb['b']
+        hex_name       = f'#{r:02X}{g:02X}{b:02X}'
 
         if on_progress:
-            on_progress(f'Building layer {i + 1}/{total}  {hex_name}')
+            on_progress(f'Adding layer {i + 1}/{total}  {hex_name}')
+            QApplication.processEvents()
 
         color_group = doc.createGroupLayer(hex_name)
         group.addChildNode(color_group, None)
 
-        # Fill: generator fill layer with native Lab16 colour
         fill = _make_lab_fill_layer(doc, 'fill', lab_profile, lab['L'], lab['a'], lab['b'])
         color_group.addChildNode(fill, None)
-
-        # Mask
-        mask_bytes = generate_mask(assignments, i, width, height)
-        if speckle_threshold > 0:
-            despeckle_mask(mask_bytes, width, height, speckle_threshold)
 
         tmask = doc.createTransparencyMask('mask')
         fill.addChildNode(tmask, None)
         sel = Selection()
-        sel.setPixelData(bytes(mask_bytes), 0, 0, width, height)
+        sel.setPixelData(bytes(mask), 0, 0, width, height)
         tmask.setSelection(sel)
 
-        # Refresh after each layer so the user sees progressive build-up
         doc.refreshProjection()
-        if on_progress:
-            on_progress(f'Building layer {i + 1}/{total}  {hex_name}')
+        created[0] += 1
 
-    return total
+        # Yield back to the outer event loop; Krita renders this layer
+        # before _create_next fires again.
+        QTimer.singleShot(150, _create_next)
+
+    # Kick off the first layer after one event-loop cycle.
+    QTimer.singleShot(0, _create_next)
+    wait_loop.exec_()   # block here (processing events) until all layers done
+
+    return created[0]
