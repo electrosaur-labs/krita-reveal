@@ -13,9 +13,10 @@ class RevealExtension(Extension):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self._server    = None
-        self._processor = None
-        self._browser   = None  # Popen handle for the app-mode window
+        self._server       = None
+        self._processor    = None
+        self._browser      = None   # Popen handle for the app-mode window
+        self._numpy_warned = False   # show numpy warning once per session
 
     def setup(self):
         from krita import Krita
@@ -49,22 +50,28 @@ class RevealExtension(Extension):
             self._processor = RevealCommandProcessor(self._server)
             self._server.start()
 
+        self._check_numpy()
+
+        from .browser import open_app_window
         url = f'http://127.0.0.1:{self._server.port}'
-        if not self._open_app_window(url):
+        self._browser = open_app_window(url)
+        if self._browser is None:
             import webbrowser
             webbrowser.open(url)
 
-    def _open_app_window(self, url):
-        """Try to open a dedicated app-mode window (no browser chrome). macOS only."""
-        import subprocess, shutil
-        for app in (
-            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            '/Applications/Chromium.app/Contents/MacOS/Chromium',
-            '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
-        ):
-            if shutil.which(app) or __import__('os').path.exists(app):
-                self._browser = subprocess.Popen(
-                    [app, f'--app={url}', '--window-size=780,680']
-                )
-                return True
-        return False
+    def _check_numpy(self):
+        """Warn once per session if numpy is not available."""
+        if self._numpy_warned:
+            return
+        self._numpy_warned = True
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                None,
+                'numpy not found',
+                'Color separation will be very slow without numpy '
+                '(~2 minutes for large images).\n\n'
+                'See plugin documentation for installation instructions.',
+            )
