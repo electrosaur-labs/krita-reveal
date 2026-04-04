@@ -43,12 +43,138 @@ def _make_lab_fill_layer(doc, name: str, lab_profile: str, L: float, a: float, b
     return layer
 
 
-def build_separation_layers(doc, result: dict, on_progress=None) -> int:
+def compute_masks_no_despeckle(doc, result: dict, on_progress=None) -> tuple:
+    """Separation + mask generation (no despeckle). Returns (masks, palette_rgb, palette_lab, speckle_threshold)."""
+    from pyreveal import generate_mask
+
+    palette_rgb       = result['palette']
+    palette_lab       = result['palette_lab']
+    proxy_w           = result.get('_proxy_w', doc.width())
+    proxy_h           = result.get('_proxy_h', doc.height())
+    width             = doc.width()
+    height            = doc.height()
+    matched           = result.get('_matched_archetype') or {}
+    speckle_threshold = matched.get('speckle', 5)
+    total             = len(palette_rgb)
+
+    if proxy_w != width or proxy_h != height:
+        import threading
+        import time as _time
+
+        if on_progress:
+            on_progress(f'Reading pixels ({width}×{height})…')
+
+        from .pipeline import read_document_raw, raw_to_assignments
+        raw_bytes, _, _ = read_document_raw(doc)
+        pixel_count = width * height
+
+        sep_result = [None]
+        sep_error  = [None]
+
+        def _run_separation():
+            try:
+                sep_result[0] = raw_to_assignments(raw_bytes, pixel_count, palette_lab)
+            except Exception as e:
+                sep_error[0] = e
+
+        sep_thread = threading.Thread(target=_run_separation, daemon=True)
+        sep_thread.start()
+
+        if on_progress:
+            from PyQt5.QtWidgets import QApplication
+            t_start = _time.time()
+            while sep_thread.is_alive():
+                QApplication.processEvents()
+                _time.sleep(0.1)
+                elapsed = int(_time.time() - t_start)
+                on_progress(f'Separating {elapsed}s')
+
+        sep_thread.join()
+
+        if sep_error[0]:
+            raise sep_error[0]
+        assignments = sep_result[0]
+    else:
+        assignments = result['assignments']
+
+    if on_progress:
+        on_progress('Generating masks…')
+
+    masks = []
+    for i in range(total):
+        masks.append(generate_mask(assignments, i, width, height))
+
+    return masks, palette_rgb, palette_lab, speckle_threshold
+
+
+def create_layers_from_masks(doc, palette_rgb, palette_lab, masks,
+                             on_progress=None, on_ready=None) -> int:
+    """Create Krita layers from pre-computed (already despeckled) masks."""
+    lab_profile = doc.colorProfile()
+    width       = doc.width()
+    height      = doc.height()
+    total       = len(palette_rgb)
+
+    if on_ready:
+        on_ready()
+
+    root  = doc.rootNode()
+    group = doc.createNode('Reveal Separation', 'grouplayer')
+    root.addChildNode(group, None)
+    doc.refreshProjection()
+
+    from PyQt5.QtCore import QEventLoop, QTimer
+    from PyQt5.QtWidgets import QApplication
+
+    wait_loop  = QEventLoop()
+    items      = list(zip(palette_rgb, palette_lab, masks))
+    created    = [0]
+
+    def _create_next():
+        if not items:
+            wait_loop.quit()
+            return
+
+        i              = created[0]
+        rgb, lab, mask = items.pop(0)
+        r, g, b        = rgb['r'], rgb['g'], rgb['b']
+        hex_name       = f'#{r:02X}{g:02X}{b:02X}'
+
+        if on_progress:
+            on_progress(f'Adding layer {i + 1}/{total}  {hex_name}')
+            QApplication.processEvents()
+
+        color_group = doc.createGroupLayer(hex_name)
+        group.addChildNode(color_group, None)
+
+        fill = _make_lab_fill_layer(doc, 'fill', lab_profile, lab['L'], lab['a'], lab['b'])
+        color_group.addChildNode(fill, None)
+
+        tmask = doc.createTransparencyMask('mask')
+        fill.addChildNode(tmask, None)
+        sel = Selection()
+        sel.setPixelData(bytes(mask), 0, 0, width, height)
+        tmask.setSelection(sel)
+
+        doc.refreshProjection()
+        created[0] += 1
+
+        QTimer.singleShot(150, _create_next)
+
+    QTimer.singleShot(0, _create_next)
+    wait_loop.exec_()
+
+    return created[0]
+
+
+def build_separation_layers(doc, result: dict, on_progress=None, on_ready=None) -> int:
     """Build one group layer per palette colour.
 
     result:      dict from pyreveal.posterize_image()
     on_progress: optional callable(message: str) called during separation
                  and between layer creations so the UI can update.
+    on_ready:    optional callable() called once separation is done and layer
+                 creation is about to start — used to signal Chrome to close.
     Returns number of colour layers created.
     """
     from pyreveal import generate_mask, despeckle_mask
@@ -131,6 +257,9 @@ def build_separation_layers(doc, result: dict, on_progress=None) -> int:
         if speckle_threshold > 0:
             despeckle_mask(m, width, height, speckle_threshold)
         masks.append(m)
+
+    if on_ready:
+        on_ready()
 
     root  = doc.rootNode()
     group = doc.createNode('Reveal Separation', 'grouplayer')

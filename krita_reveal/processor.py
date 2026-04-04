@@ -19,7 +19,7 @@ from .pipeline import (
     make_posterized_rgb, make_solo_rgb, read_document_pixels,
     read_document_raw, run_separation,
 )
-from .layer_builder import build_separation_layers
+from .layer_builder import build_separation_layers, compute_masks_no_despeckle, create_layers_from_masks
 
 
 # ── JPEG helper ────────────────────────────────────────────────────────────
@@ -117,6 +117,7 @@ class RevealCommandProcessor(QObject):
         elif t == 'delete':        self._do_delete(cmd['params'])
         elif t == 'revert-delete': self._do_revert_delete(cmd['params'])
         elif t == 'rerun':         self._do_rerun(cmd['params'])
+        elif t == 'push-masks':    self._do_push_masks()
 
     # ── Separate ──────────────────────────────────────────────────────
 
@@ -413,16 +414,6 @@ class RevealCommandProcessor(QObject):
         if not doc:
             self._state.set_message('No active document.', is_error=True)
             return
-        # Bring Krita to the foreground before the build starts so the user
-        # can see progress and the busy cursor applies to the right window.
-        try:
-            win = Krita.instance().activeWindow()
-            if win:
-                qw = win.qwindow()
-                qw.activateWindow()
-                qw.raise_()
-        except Exception:
-            pass
         from PyQt5.QtCore import Qt
         from PyQt5.QtWidgets import QApplication
         self._state.set_running('Building layers…')
@@ -432,7 +423,52 @@ class RevealCommandProcessor(QObject):
                 self._state.set_message(msg)
                 QApplication.processEvents()
 
-            n = build_separation_layers(doc, self._result, on_progress=_progress)
+            masks, palette_rgb, palette_lab, speckle = \
+                compute_masks_no_despeckle(doc, self._result, on_progress=_progress)
+
+            # Store masks + metadata; Chrome JS will despeckle and POST back
+            width, height = doc.width(), doc.height()
+            masks_bytes = b''.join(bytes(m) for m in masks)
+            self._build_palette_rgb = palette_rgb
+            self._build_palette_lab = palette_lab
+            self._state.set_despeckle_ready(masks_bytes, {
+                'width':  width,
+                'height': height,
+                'total':  len(masks),
+                'speckle_threshold': speckle,
+            })
+        except Exception as e:
+            self._state.set_build_done(f'Build error: {e}', is_error=True)
+        finally:
+            QApplication.restoreOverrideCursor()
+
+    def _do_push_masks(self):
+        """Receive despeckled masks from Chrome and create Krita layers."""
+        with self._state._lock:
+            masks = self._state.despeckled_masks
+        if not masks:
+            self._state.set_error('No masks received.')
+            return
+        doc = Krita.instance().activeDocument()
+        if not doc:
+            self._state.set_message('No active document.', is_error=True)
+            return
+        from PyQt5.QtCore import Qt
+        from PyQt5.QtWidgets import QApplication
+        self._state.set_running('Creating layers…')
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            def _progress(msg):
+                self._state.set_message(msg)
+                QApplication.processEvents()
+
+            def _on_ready():
+                self._state.set_close_window()
+                QApplication.processEvents()
+
+            n = create_layers_from_masks(
+                doc, self._build_palette_rgb, self._build_palette_lab, masks,
+                on_progress=_progress, on_ready=_on_ready)
             self._state.set_build_done(f'Created {n} layers.')
         except Exception as e:
             self._state.set_build_done(f'Layer error: {e}', is_error=True)

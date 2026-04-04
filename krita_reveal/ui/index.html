@@ -71,6 +71,7 @@ html, body {
 #preview-container.has-image #preview-img        { display: block; }
 #preview-container.has-image #preview-placeholder { display: none; }
 
+
 #preview-placeholder {
     display: flex;
     flex-direction: column;
@@ -1008,10 +1009,10 @@ let colorPickerIdx = -1;
 let isRunning      = false;
 
 // ── Elements ─────────────────────────────────────────────────────────────────
-const previewCont   = document.getElementById('preview-container');
-const previewImg    = document.getElementById('preview-img');
-const statusBar     = document.getElementById('status-bar');
-const sideStatus    = document.getElementById('side-status');
+const previewCont    = document.getElementById('preview-container');
+const previewImg     = document.getElementById('preview-img');
+const statusBar      = document.getElementById('status-bar');
+const sideStatus     = document.getElementById('side-status');
 const surgeon       = document.getElementById('palette-surgeon');
 const grid          = document.getElementById('surgeon-grid');
 grid.addEventListener('click',     onSwatchClick,    false);
@@ -1717,6 +1718,76 @@ function setBusy(busy) {
     document.body.style.cursor = busy ? 'wait' : '';
 }
 
+// ── JS Despeckle (offloaded from Python) ─────────────────────────────────────
+function despeckleMask(mask, width, height, threshold) {
+    const pixelCount = width * height;
+    const visited = new Uint8Array(pixelCount);
+    const stack = new Uint32Array(pixelCount);
+    const toRemove = [];
+    for (let i = 0; i < pixelCount; i++) {
+        if (mask[i] === 0 || visited[i]) continue;
+        const cluster = [];
+        let sp = 0;
+        stack[sp++] = i;
+        visited[i] = 1;
+        while (sp > 0) {
+            const idx = stack[--sp];
+            cluster.push(idx);
+            const x = idx % width;
+            const y = (idx / width) | 0;
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    const nx = x + dx, ny = y + dy;
+                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+                    const ni = ny * width + nx;
+                    if (mask[ni] > 0 && !visited[ni]) {
+                        stack[sp++] = ni;
+                        visited[ni] = 1;
+                    }
+                }
+            }
+        }
+        if (cluster.length < threshold) toRemove.push(cluster);
+    }
+    for (const cluster of toRemove)
+        for (const idx of cluster) mask[idx] = 0;
+}
+
+async function runJsDespeckle() {
+    try {
+        setStatus('Fetching masks…', false);
+        const [paramsResp, masksResp] = await Promise.all([
+            fetch('/api/despeckle-params').then(r => r.json()),
+            fetch('/data/masks').then(r => r.arrayBuffer()),
+        ]);
+        const { width, height, total, speckle_threshold } = paramsResp;
+        const maskSize = width * height;
+        const raw = new Uint8Array(masksResp);
+
+        for (let i = 0; i < total; i++) {
+            setStatus(`Despeckle ${i + 1}/${total}…`, false);
+            const mask = raw.subarray(i * maskSize, (i + 1) * maskSize);
+            if (speckle_threshold > 0) despeckleMask(mask, width, height, speckle_threshold);
+            // Yield to keep overlay updating
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        setStatus('Sending masks to Krita…', false);
+        await fetch('/api/push-masks', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/octet-stream'},
+            body: raw,
+        });
+        // Resume polling — Krita is now creating layers
+        pollTimer = setTimeout(poll, 500);
+    } catch (e) {
+        setStatus('Despeckle error: ' + e.message, true);
+        isRunning = false;
+        setBusy(false);
+    }
+}
+
 // ── Poll ─────────────────────────────────────────────────────────────────────
 function poll() {
     fetch('/api/status')
@@ -1724,19 +1795,24 @@ function poll() {
         .then(data => {
             setStatus(data.message, data.is_error);
             if (data.status === 'running') {
+                if (data.close_window) { isRunning = false; window.close(); return; }
                 pollTimer = setTimeout(poll, 500);
-            } else if (data.status === 'done' && !hasResult) {
+            } else if (data.status === 'despeckle') {
+                runJsDespeckle();
+            } else if (data.status === 'done') {
                 isRunning = false;
                 setBusy(false);
-                hasResult = true;
-                previewCont.classList.add('has-image');
-                refreshPreview('post');
-                renderSwatches(data.palette);
-                renderSuggestions(data.suggestions);
-                if (data.archetypes && data.archetypes.length)
-                    renderArchetypes(data.archetypes, data.matched_archetype_id);
-                applyMatchedArchetype(data.matched_archetype);
-                btnBuild.style.display = 'block';
+                if (!hasResult) {
+                    hasResult = true;
+                    previewCont.classList.add('has-image');
+                    refreshPreview('post');
+                    renderSwatches(data.palette);
+                    renderSuggestions(data.suggestions);
+                    if (data.archetypes && data.archetypes.length)
+                        renderArchetypes(data.archetypes, data.matched_archetype_id);
+                    applyMatchedArchetype(data.matched_archetype);
+                    btnBuild.style.display = 'block';
+                }
             } else if (data.status === 'error') {
                 isRunning = false;
                 setBusy(false);
@@ -1831,18 +1907,22 @@ document.getElementById('k-proxy-res').addEventListener('change', () => {
 
 // ── Build Layers ─────────────────────────────────────────────────────────────
 btnBuild.addEventListener('click', () => {
-    setStatus('Building layers…', false);
+    if (isRunning) return;
+    isRunning = true;
     setBusy(true);
-    fetch('/api/build', {method: 'POST'})
-        .then(() => fetch('/api/status'))
-        .then(r => r.json())
-        .then(data => {
-            setBusy(false);
-            setStatus(data.message, data.is_error);
-            if (!data.is_error) setTimeout(() => window.close(), 800);
-        });
+    setStatus('Building layers…', false);
+    fetch('/api/build', {method: 'POST'}).then(() => {
+        if (pollTimer) clearTimeout(pollTimer);
+        pollTimer = setTimeout(poll, 500);
+    });
 });
 
+
+
+// ── Keep window open while a build is running ────────────────────────────────
+window.addEventListener('beforeunload', e => {
+    if (isRunning) { e.preventDefault(); return (e.returnValue = ''); }
+});
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 fetch('/api/status')
