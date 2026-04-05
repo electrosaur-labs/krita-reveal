@@ -147,6 +147,7 @@ html, body {
 }
 
 .surgeon-color-block {
+    position: relative;
     width: 19px;
     height: 19px;
     border-radius: 2px;
@@ -160,7 +161,6 @@ html, body {
 }
 
 .surgeon-swatch.surgeon-deleted {
-    opacity: 0.35;
     border-color: #663333 !important;
     background: #2a1e1e !important;
 }
@@ -176,6 +176,23 @@ html, body {
     color: #ff6666;
     background: rgba(0,0,0,0.5);
     border-radius: 2px;
+}
+
+.surgeon-merge-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    padding: 0 3px;
+    border-radius: 7px;
+    background: #4da6ff;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    pointer-events: none;
 }
 
 /* ── Color picker ────────────────────────────────────────────────────────── */
@@ -1446,6 +1463,14 @@ function renderSwatches(palette) {
         const block = document.createElement('div');
         block.className = 'surgeon-color-block';
         block.style.background = c.hex;
+
+        if (c.merge_count > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'surgeon-merge-badge';
+            badge.textContent = '+' + c.merge_count;
+            badge.title = `Absorbing ${c.merge_count} deleted color${c.merge_count > 1 ? 's' : ''}`;
+            block.appendChild(badge);
+        }
 
         const pct = document.createElement('span');
         pct.className = 'surgeon-pct';

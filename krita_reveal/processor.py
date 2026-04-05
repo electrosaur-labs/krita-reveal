@@ -285,22 +285,30 @@ class RevealCommandProcessor(QObject):
 
     # ── Delete / Revert-delete ────────────────────────────────────────
 
-    def _effective_assignments(self):
-        """Return assignments with deleted palette entries remapped to nearest live color."""
+    def _delete_remap(self):
+        """Return {deleted_idx: nearest_live_idx} for deleted palette entries."""
         palette     = self._result['palette']
-        assignments = self._result['assignments']
+        palette_lab = self._result.get('palette_lab', [])
         live = [i for i, c in enumerate(palette) if not c.get('is_deleted')]
         if not live or len(live) == len(palette):
-            return assignments
+            return {}
 
-        def rgb_dist(a, b):
-            return (a['r']-b['r'])**2 + (a['g']-b['g'])**2 + (a['b']-b['b'])**2
+        def lab_dist(i, j):
+            a, b = palette_lab[i], palette_lab[j]
+            return (a['L']-b['L'])**2 + (a['a']-b['a'])**2 + (a['b']-b['b'])**2
 
         remap = {}
         for i, c in enumerate(palette):
             if c.get('is_deleted'):
-                remap[i] = min(live, key=lambda j: rgb_dist(c, palette[j]))
-        return [remap.get(a, a) for a in assignments]
+                remap[i] = min(live, key=lambda j: lab_dist(i, j))
+        return remap
+
+    def _effective_assignments(self):
+        """Return assignments with deleted palette entries remapped to nearest live color."""
+        remap = self._delete_remap()
+        if not remap:
+            return self._result['assignments']
+        return [remap.get(a, a) for a in self._result['assignments']]
 
     def _do_delete(self, params):
         """Badge a palette color as deleted; pixels remap to nearest live color."""
@@ -343,6 +351,12 @@ class RevealCommandProcessor(QObject):
                 counts[a] += 1
         r['_coverage'] = [100.0 * c / total for c in counts]
 
+        # Count how many deleted colours map to each live colour
+        remap = self._delete_remap()
+        merge_counts = [0] * len(r['palette'])
+        for target in remap.values():
+            merge_counts[target] += 1
+
         coverage    = r['_coverage']
         palette_out = [
             {
@@ -350,6 +364,7 @@ class RevealCommandProcessor(QObject):
                 'hex': f"#{c['r']:02X}{c['g']:02X}{c['b']:02X}",
                 'pct': 0.0 if c.get('is_deleted') else round(coverage[i] if i < len(coverage) else 0.0, 1),
                 'is_deleted': bool(c.get('is_deleted', False)),
+                'merge_count': merge_counts[i],
             }
             for i, c in enumerate(r['palette'])
         ]
