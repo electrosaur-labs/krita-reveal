@@ -97,12 +97,109 @@ class SeparationEngine:
     ) -> bytearray:
         """Nearest-neighbour mapping in native 16-bit space.
 
-        Spatial locality: checks the previous winner before scanning the full palette.
-        Snap threshold: exits the full search early when a colour is close enough.
+        Uses numpy-vectorised distance computation for CIE76 and CIE94 when
+        numpy is available.  Falls back to a pure-Python spatial-locality loop
+        for CIE2000 or when numpy is not present.
         """
         if dist_cfg is None:
             dist_cfg = normalize_distance_config({})
 
+        if not dist_cfg['is_cie2000']:
+            try:
+                return SeparationEngine._map_pixels_nearest_neighbor_numpy(
+                    raw_bytes, lab_palette, dist_cfg
+                )
+            except Exception:
+                pass  # fall through to Python path
+
+        return SeparationEngine._map_pixels_nearest_neighbor_python(
+            raw_bytes, lab_palette, dist_cfg
+        )
+
+    @staticmethod
+    def _map_pixels_nearest_neighbor_numpy(
+        raw_bytes,
+        lab_palette: list,
+        dist_cfg: dict,
+    ) -> bytearray:
+        """Numpy-vectorised nearest-neighbour mapping (CIE76 and CIE94).
+
+        Processes pixels in chunks of ~400 K to keep peak memory under ~100 MB.
+        """
+        import numpy as np
+
+        K            = len(lab_palette)
+        pixel_count  = len(raw_bytes) // 3
+        is_cie94     = dist_cfg['is_cie94']
+
+        # Palette in engine 16-bit as float32 (K, 3)
+        pal16 = np.array(
+            [list(perceptual_to_engine16(p['L'], p['a'], p['b'])) for p in lab_palette],
+            dtype=np.float32,
+        )
+        pal_L = pal16[:, 0]  # (K,)
+        pal_a = pal16[:, 1]  # (K,)
+        pal_b = pal16[:, 2]  # (K,)
+
+        # Pre-compute palette chroma for CIE94
+        if is_cie94:
+            a_off      = pal_a - LAB16_AB_NEUTRAL
+            b_off      = pal_b - LAB16_AB_NEUTRAL
+            pal_chroma = np.sqrt(a_off * a_off + b_off * b_off)  # (K,)
+            k1         = DEFAULT_CIE94_PARAMS_16['k1']
+            k2         = DEFAULT_CIE94_PARAMS_16['k2']
+
+        # Convert pixel buffer to float32 (N, 3) — handles array.array, bytearray, list
+        pixels = np.asarray(raw_bytes, dtype=np.float32).reshape(pixel_count, 3)
+
+        result = np.empty(pixel_count, dtype=np.uint8)
+
+        CHUNK = 400_000
+        for start in range(0, pixel_count, CHUNK):
+            end   = min(start + CHUNK, pixel_count)
+            chunk = pixels[start:end]   # (C, 3)
+
+            pL = chunk[:, 0:1]  # (C, 1) — broadcasts against (K,) to (C, K)
+            pa = chunk[:, 1:2]
+            pb = chunk[:, 2:3]
+
+            dL = pL - pal_L  # (C, K)
+            da = pa - pal_a  # (C, K)
+            db = pb - pal_b  # (C, K)
+
+            if is_cie94:
+                a_off_p = pa - LAB16_AB_NEUTRAL         # (C, 1)
+                b_off_p = pb - LAB16_AB_NEUTRAL         # (C, 1)
+                C_test  = np.sqrt(a_off_p * a_off_p + b_off_p * b_off_p)  # (C, 1)
+
+                dC    = pal_chroma - C_test             # (C, K): C_ref − C_test
+                dH_sq = np.maximum(0.0, da * da + db * db - dC * dC)   # (C, K)
+                SC    = 1.0 + k1 * pal_chroma          # (K,) → broadcast (C, K)
+                SH    = 1.0 + k2 * pal_chroma
+                dist_sq = (dL * dL
+                           + (dC / SC) * (dC / SC)
+                           + dH_sq / (SH * SH))        # (C, K)
+            else:
+                # CIE76 with shadow-L weighting
+                avg_L   = (pL + pal_L) * 0.5           # (C, K)
+                l_w     = np.where(avg_L < _SHADOW_THRESHOLD_16, 2.0, 1.0)  # (C, K)
+                dL_w    = dL * l_w
+                dist_sq = dL_w * dL_w + da * da + db * db  # (C, K)
+
+            result[start:end] = dist_sq.argmin(axis=1)
+
+        return bytearray(result)
+
+    @staticmethod
+    def _map_pixels_nearest_neighbor_python(
+        raw_bytes,
+        lab_palette: list,
+        dist_cfg: dict,
+    ) -> bytearray:
+        """Pure-Python nearest-neighbour mapping with spatial locality + snap threshold.
+
+        Used for CIE2000 (which is hard to vectorise) and as numpy fallback.
+        """
         pixel_count  = len(raw_bytes) // 3
         color_indices = bytearray(pixel_count)
         palette_size  = len(lab_palette)
@@ -185,11 +282,16 @@ class SeparationEngine:
     @staticmethod
     def generate_layer_mask(color_indices, target_index: int, width: int, height: int) -> bytearray:
         """Generate a binary mask (255/0) for one palette colour index."""
-        mask = bytearray(width * height)
-        for i in range(len(color_indices)):
-            if color_indices[i] == target_index:
-                mask[i] = 255
-        return mask
+        try:
+            import numpy as np
+            arr = np.asarray(color_indices, dtype=np.uint8)
+            return bytearray(np.where(arr == target_index, np.uint8(255), np.uint8(0)))
+        except Exception:
+            mask = bytearray(width * height)
+            for i in range(len(color_indices)):
+                if color_indices[i] == target_index:
+                    mask[i] = 255
+            return mask
 
     # -------------------------------------------------------------------------
     # Despeckle
