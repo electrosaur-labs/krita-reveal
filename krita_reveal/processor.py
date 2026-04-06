@@ -263,7 +263,7 @@ class RevealCommandProcessor(QObject):
         if idx < 0:
             jpg = _to_jpeg(r['_post_rgb'], pw, ph)
         else:
-            solo = make_solo_rgb(r['assignments'], r['palette'], idx, pw, ph)
+            solo = make_solo_rgb(self._effective_assignments(), r['palette'], idx, pw, ph)
             jpg  = _to_jpeg(solo, pw, ph)
         self._state.set_preview(jpg)
 
