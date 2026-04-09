@@ -140,7 +140,7 @@ class _LoupeOverlay(QWidget):
     """Circular magnifier overlay for the preview image."""
 
     RADIUS = 60       # overlay radius in pixels
-    ZOOM = 3          # magnification factor
+    ZOOM = 0          # magnification factor (0 = off)
 
     def __init__(self, parent):
         super().__init__(parent)
@@ -150,51 +150,41 @@ class _LoupeOverlay(QWidget):
         self.setVisible(False)
         self._loupe_px = None
 
-    def update_loupe(self, cursor_pos, source_px, label_widget):
-        if source_px is None:
+    def update_loupe(self, cursor_pos, displayed_px, label_widget):
+        if displayed_px is None:
             self.setVisible(False)
             return
 
-        # Map cursor position to source pixmap coordinates.
-        # The label scales the pixmap with KeepAspectRatio and centers it.
-        img_w, img_h = source_px.width(), source_px.height()
+        px_w, px_h = displayed_px.width(), displayed_px.height()
         lbl_w, lbl_h = label_widget.width(), label_widget.height()
 
-        # Compute the displayed size by replicating Qt's KeepAspectRatio scaling
-        scale = min(lbl_w / img_w, lbl_h / img_h)
-        disp_w = int(img_w * scale)
-        disp_h = int(img_h * scale)
-
         # The label centers the pixmap
-        off_x = (lbl_w - disp_w) / 2.0
-        off_y = (lbl_h - disp_h) / 2.0
+        off_x = (lbl_w - px_w) / 2.0
+        off_y = (lbl_h - px_h) / 2.0
 
-        # Cursor pos relative to the displayed pixmap
+        # Cursor position relative to the displayed pixmap
         rel_x = cursor_pos.x() - off_x
         rel_y = cursor_pos.y() - off_y
 
-        if rel_x < 0 or rel_y < 0 or rel_x >= disp_w or rel_y >= disp_h:
+
+        if rel_x < 0 or rel_y < 0 or rel_x >= px_w or rel_y >= px_h:
             self.setVisible(False)
             return
 
-        # Map to source coordinates
-        src_x = rel_x / scale
-        src_y = rel_y / scale
+        # Sample region: RADIUS/ZOOM pixels around cursor in the displayed pixmap
+        sample_r = self.RADIUS / self.ZOOM
+        d = self.RADIUS * 2
 
-        # Extract region from source (sample_r in source-pixel units)
-        sample_r = self.RADIUS / (self.ZOOM * scale)
-        rx = max(0, int(src_x - sample_r))
-        ry = max(0, int(src_y - sample_r))
-        rw = min(int(sample_r * 2), img_w - rx)
-        rh = min(int(sample_r * 2), img_h - ry)
-        if rw <= 0 or rh <= 0:
+        region = displayed_px.copy(
+            int(rel_x - sample_r), int(rel_y - sample_r),
+            int(sample_r * 2), int(sample_r * 2),
+        )
+        if region.width() <= 0 or region.height() <= 0:
             self.setVisible(False)
             return
 
-        region = source_px.copy(rx, ry, rw, rh)
         self._loupe_px = region.scaled(
-            self.RADIUS * 2, self.RADIUS * 2,
-            Qt.IgnoreAspectRatio, Qt.SmoothTransformation,
+            d, d, Qt.IgnoreAspectRatio, Qt.SmoothTransformation,
         )
 
         # Position: offset above-right of cursor to avoid occlusion
@@ -216,10 +206,10 @@ class _LoupeOverlay(QWidget):
             return
         from PyQt5.QtGui import QPainterPath
         d = self.RADIUS * 2
-        p = QPainter(self)
-        p.setCompositionMode(QPainter.CompositionMode_Source)
-        p.fillRect(self.rect(), QColor(0, 0, 0, 0))  # clear to transparent
-        p.setCompositionMode(QPainter.CompositionMode_SourceOver)
+        # Render to a transparent pixmap first, then draw to widget
+        buf = QPixmap(d, d)
+        buf.fill(QColor(0, 0, 0, 0))
+        p = QPainter(buf)
         p.setRenderHint(QPainter.Antialiasing)
         # Circular clip — only the circle is painted
         path = QPainterPath()
@@ -236,6 +226,10 @@ class _LoupeOverlay(QWidget):
         p.drawLine(cx - 5, cy, cx + 5, cy)
         p.drawLine(cx, cy - 5, cx, cy + 5)
         p.end()
+        # Draw the composited buffer onto the widget
+        wp = QPainter(self)
+        wp.drawPixmap(0, 0, buf)
+        wp.end()
 
 
 class _PreviewLabel(QLabel):
@@ -347,9 +341,9 @@ class _PreviewLabel(QLabel):
             self.clicked.emit()
 
     def mouseMoveEvent(self, e):
-        src = self._current_source_px()
-        if src and not self._blink_timer.isActive() and not self._hold_timer.isActive():
-            self._loupe.update_loupe(e.pos(), src, self)
+        displayed = self.pixmap()
+        if displayed and self._loupe.ZOOM > 0 and not self._blink_timer.isActive() and not self._hold_timer.isActive():
+            self._loupe.update_loupe(e.pos(), displayed, self)
         else:
             self._loupe.setVisible(False)
 
@@ -1199,9 +1193,9 @@ class RevealDock(DockWidget):
         preview_ctrl_row.addWidget(loupe_label)
         self._loupe_mag_combo = QComboBox()
         self._loupe_mag_combo.setStyleSheet(combo_style)
-        for val, text in [(1, '1:1'), (2, '1:2'), (4, '1:4'), (8, '1:8')]:
+        for val, text in [(0, 'Off'), (8, '1:8'), (4, '1:4'), (2, '1:2'), (1, '1:1')]:
             self._loupe_mag_combo.addItem(text, val)
-        self._loupe_mag_combo.setCurrentIndex(1)  # 1:2 default
+        self._loupe_mag_combo.setCurrentIndex(0)  # Off default
         self._loupe_mag_combo.currentIndexChanged.connect(self._on_loupe_mag_changed)
         preview_ctrl_row.addWidget(self._loupe_mag_combo)
         left_layout.addLayout(preview_ctrl_row)
@@ -1960,8 +1954,12 @@ class RevealDock(DockWidget):
     # ── Solo / Override / Delete ────────────────────────────────────────────
 
     def _on_loupe_mag_changed(self):
-        mag = self._loupe_mag_combo.currentData() or 2
-        self._preview._loupe.ZOOM = mag
+        mag = self._loupe_mag_combo.currentData()
+        if mag == 0:
+            self._preview._loupe.setVisible(False)
+            self._preview._loupe.ZOOM = 0
+        else:
+            self._preview._loupe.ZOOM = mag
 
     def _on_preview_clicked(self):
         """Quick click on preview: if swatch selected → deselect (show full),
