@@ -408,7 +408,7 @@ class _LabPicker(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent, Qt.Popup)
-        self.setFixedWidth(320)
+        self.setFixedWidth(430)
         self.setStyleSheet(
             'background: #2a2a2a; border: 1px solid #555; border-radius: 5px;'
         )
@@ -417,23 +417,57 @@ class _LabPicker(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
+        # Top row: a/b plane | L strip (vertical) | preview swatches
+        top_row = QHBoxLayout()
+        top_row.setSpacing(8)
+
+        # a/b chroma plane
         self._ab_widget = _ABCanvas()
-        self._ab_widget.setFixedSize(300, 230)
+        self._ab_widget.setFixedSize(320, 307)
         self._ab_widget.changed.connect(self._on_ab_changed)
-        layout.addWidget(self._ab_widget)
+        top_row.addWidget(self._ab_widget)
 
-        self._l_widget = _LStrip()
-        self._l_widget.setFixedSize(300, 20)
+        # L lightness strip (vertical)
+        self._l_widget = _LStrip(vertical=True)
+        self._l_widget.setFixedSize(20, 307)
         self._l_widget.changed.connect(self._on_l_changed)
-        layout.addWidget(self._l_widget)
+        top_row.addWidget(self._l_widget)
 
-        row = QHBoxLayout()
-        row.setSpacing(6)
+        # New/current color comparison
+        preview_col = QVBoxLayout()
+        preview_col.setSpacing(0)
+        preview_col.setContentsMargins(0, 0, 0, 0)
+
+        new_label = QLabel('new')
+        new_label.setFixedWidth(40)
+        new_label.setStyleSheet('color: #999; font-size: 8px; padding: 0; margin: 0;')
+        new_label.setAlignment(Qt.AlignCenter)
+        preview_col.addWidget(new_label)
 
         self._preview = QFrame()
-        self._preview.setFixedSize(32, 32)
-        self._preview.setStyleSheet('border: 1px solid #555; border-radius: 3px;')
-        row.addWidget(self._preview)
+        self._preview.setFixedSize(40, 40)
+        self._preview.setStyleSheet('border: 1px solid #555; border-radius: 2px 2px 0 0;')
+        preview_col.addWidget(self._preview)
+
+        self._original_preview = QFrame()
+        self._original_preview.setFixedSize(40, 40)
+        self._original_preview.setStyleSheet('border: 1px solid #555; border-top: none; border-radius: 0 0 2px 2px;')
+        preview_col.addWidget(self._original_preview)
+
+        current_label = QLabel('current')
+        current_label.setFixedWidth(40)
+        current_label.setStyleSheet('color: #999; font-size: 8px; padding: 0; margin: 0;')
+        current_label.setAlignment(Qt.AlignCenter)
+        preview_col.addWidget(current_label)
+
+        preview_col.addStretch()
+        top_row.addLayout(preview_col)
+
+        layout.addLayout(top_row)
+
+        # Bottom row: hex input + buttons
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(6)
 
         self._hex_input = QLineEdit()
         self._hex_input.setMaxLength(7)
@@ -444,7 +478,7 @@ class _LabPicker(QWidget):
         )
         self._hex_input.textEdited.connect(self._on_hex_edited)
         self._hex_input.returnPressed.connect(self._apply)
-        row.addWidget(self._hex_input)
+        bottom_row.addWidget(self._hex_input)
 
         cancel_btn = QPushButton('Cancel')
         cancel_btn.setFixedWidth(52)
@@ -453,7 +487,7 @@ class _LabPicker(QWidget):
             'border: 1px solid #555; color: #aaa; border-radius: 3px;'
         )
         cancel_btn.clicked.connect(self.hide)
-        row.addWidget(cancel_btn)
+        bottom_row.addWidget(cancel_btn)
 
         ok_btn = QPushButton('OK')
         ok_btn.setFixedWidth(44)
@@ -462,9 +496,9 @@ class _LabPicker(QWidget):
             'border: 1px solid #3070a0; color: #60b0ff; border-radius: 3px;'
         )
         ok_btn.clicked.connect(self._apply)
-        row.addWidget(ok_btn)
+        bottom_row.addWidget(ok_btn)
 
-        layout.addLayout(row)
+        layout.addLayout(bottom_row)
 
         self._L = 50.0
         self._a = 0.0
@@ -473,6 +507,9 @@ class _LabPicker(QWidget):
 
     def open_for(self, idx, hex_color, anchor_widget):
         self._target_idx = idx
+        self._original_preview.setStyleSheet(
+            f'background: {hex_color}; border: 1px solid #555; border-top: none; border-radius: 0 0 2px 2px;'
+        )
         r = int(hex_color[1:3], 16)
         g = int(hex_color[3:5], 16)
         b = int(hex_color[5:7], 16)
@@ -492,7 +529,7 @@ class _LabPicker(QWidget):
         r, g, b = lab_to_rgb(self._L, self._a, self._b)
         hex_str = f'#{r:02X}{g:02X}{b:02X}'
         self._preview.setStyleSheet(
-            f'background: {hex_str}; border: 1px solid #555; border-radius: 3px;'
+            f'background: {hex_str}; border: 1px solid #555; border-radius: 2px 2px 0 0;'
         )
         if not skip_hex:
             self._hex_input.setText(hex_str)
@@ -613,16 +650,17 @@ class _ABCanvas(QWidget):
 
 
 class _LStrip(QWidget):
-    """Horizontal L (lightness) strip."""
+    """L (lightness) strip — vertical or horizontal."""
     changed = Signal(float)
 
-    def __init__(self):
+    def __init__(self, vertical=False):
         super().__init__()
         self.setCursor(Qt.CrossCursor)
         self._L = 50.0
         self._a = 0.0
         self._b = 0.0
         self._dragging = False
+        self._vertical = vertical
 
     def set_lab(self, L, a, b):
         self._L = L
@@ -633,22 +671,35 @@ class _LStrip(QWidget):
     def paintEvent(self, e):
         p = QPainter(self)
         w, h = self.width(), self.height()
-        # Draw L gradient at current a, b
-        for px in range(w):
-            lv = (px / (w - 1)) * 100.0
-            r, g, b, _ = _lab_to_rgb_fast(lv, self._a, self._b)
-            p.setPen(QColor(r, g, b))
-            p.drawLine(px, 0, px, h - 1)
-
-        # Cursor
-        cx = int((self._L / 100.0) * (w - 1))
-        p.fillRect(cx - 2, 0, 4, h, QColor(255, 255, 255))
-        p.setPen(QPen(QColor(0, 0, 0), 0.5))
-        p.drawRect(cx - 2, 0, 4, h)
+        if self._vertical:
+            # Top = L=100 (white), bottom = L=0 (black)
+            for py in range(h):
+                lv = (1.0 - py / (h - 1)) * 100.0
+                r, g, b, _ = _lab_to_rgb_fast(lv, self._a, self._b)
+                p.setPen(QColor(r, g, b))
+                p.drawLine(0, py, w - 1, py)
+            cy = int((1.0 - self._L / 100.0) * (h - 1))
+            p.fillRect(0, cy - 2, w, 4, QColor(255, 255, 255))
+            p.setPen(QPen(QColor(0, 0, 0), 0.5))
+            p.drawRect(0, cy - 2, w, 4)
+        else:
+            for px in range(w):
+                lv = (px / (w - 1)) * 100.0
+                r, g, b, _ = _lab_to_rgb_fast(lv, self._a, self._b)
+                p.setPen(QColor(r, g, b))
+                p.drawLine(px, 0, px, h - 1)
+            cx = int((self._L / 100.0) * (w - 1))
+            p.fillRect(cx - 2, 0, 4, h, QColor(255, 255, 255))
+            p.setPen(QPen(QColor(0, 0, 0), 0.5))
+            p.drawRect(cx - 2, 0, 4, h)
 
     def _pick(self, e):
-        w = self.width()
-        self._L = max(0.0, min(100.0, (e.x() / (w - 1)) * 100.0))
+        if self._vertical:
+            h = self.height()
+            self._L = max(0.0, min(100.0, (1.0 - e.y() / (h - 1)) * 100.0))
+        else:
+            w = self.width()
+            self._L = max(0.0, min(100.0, (e.x() / (w - 1)) * 100.0))
         self.update()
         self.changed.emit(self._L)
 
