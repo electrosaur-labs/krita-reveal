@@ -2,7 +2,7 @@
 
 Krita plugin for screen-print colour separation.
 
-Reduces a Lab-mode image to 3–9 spot colours and builds a fill+mask
+Reduces a Lab-mode image to 3–12 spot colours and builds a fill+mask
 layer stack ready for plate output.
 
 Powered by [pyreveal](https://github.com/electrosaur-labs/pyreveal).
@@ -23,7 +23,7 @@ Powered by [pyreveal](https://github.com/electrosaur-labs/pyreveal).
 ## Usage
 
 1. Open a **Lab colour mode** document (Image → Convert → Lab).
-2. Set the target colour count (3–9).
+2. Set the target colour count (3–12).
 3. Click **Separate Colors** — palette swatches appear.
 4. Click **Build Layers** — one group layer per colour is created.
 

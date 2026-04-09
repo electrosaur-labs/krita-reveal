@@ -485,6 +485,7 @@ def run_separation(pixels: list, width: int, height: int,
             params['enable_palette_reduction'] = False
             params['enable_hue_gap_analysis']  = False
             params['peak_finder_max_peaks']    = 0
+            params.setdefault('dither_type', 'atkinson')  # force Atkinson for Salamander
             mechanical['density_floor']        = options.get('density_floor', 0)
             mechanical['speckle_rescue']       = options.get('speckle_rescue', 0)
             config = dict(config)
@@ -533,6 +534,9 @@ def run_separation(pixels: list, width: int, height: int,
     )
     result['assignments'] = sep_assignments
 
+    # DEBUG: trace dither value
+    print(f"[Pipeline] config.dither_type={config.get('dither_type','MISSING')} params.dither_type={params.get('dither_type','MISSING')}")
+
     # Attach archetype metadata for the UI — all control values round-trip
     result['_matched_archetype'] = {
         'id':      config.get('id', ''),
@@ -557,7 +561,7 @@ def run_separation(pixels: list, width: int, height: int,
         'preprocessing':            options.get('_preprocessing_intensity', 'off'),
         'engine_type':                      params.get('engine_type', 'reveal-mk1.5'),
         'color_mode':                       params.get('color_mode', 'color'),
-        'dither_type':                      params.get('dither_type', 'none'),
+        'dither_type':                      params.get('dither_type', 'atkinson'),
         'distance_metric':                  params.get('distance_metric', 'cie76'),
         'centroid_strategy':                params.get('centroid_strategy', 'ROBUST_SALIENCY'),
         'split_mode':                       params.get('split_mode', 'median'),

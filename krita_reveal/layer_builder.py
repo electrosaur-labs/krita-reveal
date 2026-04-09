@@ -217,7 +217,7 @@ def build_separation_layers(doc, result: dict, on_progress=None, on_ready=None) 
                     width,
                     height,
                     {
-                        'dither_type':     matched.get('dither_type', 'none'),
+                        'dither_type':     matched.get('dither_type', 'atkinson'),
                         'distance_metric': matched.get('distance_metric', 'cie76'),
                     },
                 )

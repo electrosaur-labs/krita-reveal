@@ -1,8 +1,7 @@
 """
 krita_reveal — Reveal colour separation plugin for Krita.
 
-Registers a Tools > Scripts > Reveal Separation… action that opens
-a free-floating dialog. No dock widget.
+Registers a DockWidget (Settings > Dockers > Reveal Separation).
 """
 
 import sys
@@ -18,9 +17,17 @@ _packages = os.path.join(krita_data_dir(), 'python_packages')
 if os.path.isdir(_packages) and _packages not in sys.path:
     sys.path.insert(0, _packages)
 
-from .extension import RevealExtension
+from krita import DockWidgetFactory, DockWidgetFactoryBase
 
-Application.addExtension(RevealExtension(Application))
+from .dock import RevealDock
+
+Application.addDockWidgetFactory(
+    DockWidgetFactory(
+        'reveal_separation_v2',
+        DockWidgetFactoryBase.DockMinimized,
+        RevealDock,
+    )
+)
 
 
 def setup():
