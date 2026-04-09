@@ -2212,6 +2212,12 @@ class RevealDock(DockWidget):
                 QApplication.processEvents()
 
             n = build_separation_layers(doc, build_result, on_progress=_progress)
+            # Hide the original source layer(s) below the separation group
+            root = doc.rootNode()
+            for child in root.childNodes():
+                if child.name() != 'Reveal Separation':
+                    child.setVisible(False)
+            doc.refreshProjection()
             self._set_status(f'Created {n} layers.')
             # Hide the dock after successful build (user doesn't need it anymore)
             self.setVisible(False)
