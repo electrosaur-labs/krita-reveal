@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ActionCollection version="2" name="Scripts">
+    <Actions category="Scripts">
+        <text>Reveal Separation</text>
+        <Action name="reveal_separation">
+            <icon></icon>
+            <text>Reveal Separation…</text>
+            <whatsThis></whatsThis>
+            <toolTip>Open Reveal color separation panel</toolTip>
+            <iconText></iconText>
+            <activationFlags>10000</activationFlags>
+            <activationConditions>0</activationConditions>
+            <shortcut></shortcut>
+            <isCheckable>false</isCheckable>
+            <statusTip></statusTip>
+        </Action>
+    </Actions>
+</ActionCollection>

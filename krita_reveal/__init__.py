@@ -20,7 +20,9 @@ if os.path.isdir(_packages) and _packages not in sys.path:
 from krita import DockWidgetFactory, DockWidgetFactoryBase
 
 from .dock import RevealDock
+from .extension import RevealExtension
 
+# Register DockWidget (UI panel)
 Application.addDockWidgetFactory(
     DockWidgetFactory(
         'reveal_separation_v2',
@@ -28,6 +30,9 @@ Application.addDockWidgetFactory(
         RevealDock,
     )
 )
+
+# Register Extension (Tools > Scripts entry)
+Krita.instance().addExtension(RevealExtension(Krita.instance()))
 
 
 def setup():

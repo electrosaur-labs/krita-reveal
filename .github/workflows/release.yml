@@ -18,7 +18,8 @@ jobs:
         run: |
           TAG_NAME=${GITHUB_REF_NAME}
           ZIP_NAME="krita-reveal-${TAG_NAME}.zip"
-          # Zip the plugin folder and the desktop registration file
+          # Standard Krita ZIP structure: 
+          # .desktop at root, code folder at root, .action inside code folder
           zip -r "$ZIP_NAME" krita_reveal/ krita_reveal.desktop README.md
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
 
