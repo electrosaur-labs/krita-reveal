@@ -1,0 +1,6 @@
+[flake8]
+ignore = E501, E221, E241, E203, W503
+max-line-length = 127
+# Injected by Krita host
+builtins = Krita,Application,DockWidgetFactory,DockWidgetFactoryBase
+exclude = .git,__pycache__,vendor
