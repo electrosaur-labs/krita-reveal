@@ -32,12 +32,14 @@ def saliency(bucket: list, weights: dict | None = None) -> dict:
     if weights is None:
         weights = {}
 
-    black_bias     = weights.get('blackBias', 5.0)
-    is_16bit       = weights.get('bitDepth', 8) == 16
-    vibrancy_mode  = weights.get('vibrancyMode', 'aggressive')
-    vibrancy_boost = weights.get('vibrancyBoost', 2.2)
-    l_weight       = weights.get('lWeight', 1.0)
-    c_weight       = weights.get('cWeight', 1.0)
+    # Support both camelCase (JS heritage) and snake_case (Pythonic)
+    black_bias     = weights.get('blackBias', weights.get('black_bias', 5.0))
+    is_16bit       = weights.get('bitDepth', weights.get('bit_depth', 8)) == 16
+    vibrancy_mode  = weights.get('vibrancyMode', weights.get('vibrancy_mode', 'moderate'))
+    vibrancy_boost = weights.get('vibrancyBoost', weights.get('vibrancy_boost', 2.2))
+    l_weight       = weights.get('lWeight', weights.get('l_weight', 1.0))
+    c_weight       = weights.get('cWeight', weights.get('c_weight', 1.0))
+    is_vibrant     = weights.get('isVibrant', weights.get('is_vibrant', False))
 
     # Step 1: Normalize precision to 4dp — eliminates JS Float32Array vs Python float64
     # divergence so every downstream sort and comparison is deterministic across platforms.
@@ -52,26 +54,34 @@ def saliency(bucket: list, weights: dict | None = None) -> dict:
 
     # Achromatic exclusion wall (only when c_weight >= 2.5)
     achromatic_floor = 15.0 if c_weight >= 2.5 else 0.0
-    eligible = (
-        [p for p in normalized if math.sqrt(p['a'] ** 2 + p['b'] ** 2) >= achromatic_floor]
-        if achromatic_floor > 0 else normalized
-    )
+    
+    # Calculate chroma once for all pixels
+    with_chroma = []
+    for p in normalized:
+        with_chroma.append((p, math.sqrt(p['a']**2 + p['b']**2)))
 
-    # Fallback to volumetric average if all pixels are achromatic
+    # Primary path: only consider pixels above the achromatic floor
+    # If achromatic_floor is 0, everyone is eligible
+    eligible = [pair for pair in with_chroma if pair[1] >= achromatic_floor]
+
+    # Fallback to volumetric average of ALL pixels if no chromatic pixels are eligible
     if not eligible:
-        total_w = sum_l = sum_a = sum_b = 0
+        total_px = sum_l = sum_a = sum_b = 0.0
         for p in normalized:
-            w = p.get('count', 1)
-            sum_l += p['L'] * w; sum_a += p['a'] * w; sum_b += p['b'] * w
-            total_w += w
-        return {'L': sum_l / total_w, 'a': sum_a / total_w, 'b': sum_b / total_w}
+            cnt = p.get('count', 1)
+            sum_l += p['L'] * cnt; sum_a += p['a'] * cnt; sum_b += p['b'] * cnt
+            total_px += cnt
+        if total_px == 0: return {'L': 50, 'a': 0, 'b': 0}
+        return {'L': sum_l / total_px, 'a': sum_a / total_px, 'b': sum_b / total_px}
 
     def _hue_sector(a: float, b: float) -> int:
         return int(((math.atan2(b, a) * 180 / math.pi) + 360) % 360 / 30)
 
     scored = []
-    for p in eligible:
-        chroma = math.sqrt(p['a'] ** 2 + p['b'] ** 2)
+    total_eligible_px = 0
+    for p, chroma in eligible:
+        cnt = p.get('count', 1)
+        total_eligible_px += cnt
         sector = _hue_sector(p['a'], p['b'])
 
         chroma_value = (math.pow(chroma, 1 / vibrancy_boost)
@@ -87,22 +97,35 @@ def saliency(bucket: list, weights: dict | None = None) -> dict:
         score = p['L'] * l_weight + chroma_value * chroma_w + black_boost
         scored.append((score, p))
 
+    # Sort by score descending
     scored.sort(key=lambda x: -x[0])
 
-    slice_pct = 0.02 if weights.get('isVibrant') else 0.05
-    sample = max(1, min(50, int(len(scored) * slice_pct)))
+    # Take top 5% (or 2% if vibrant) of POPULATION
+    slice_pct = 0.02 if is_vibrant else 0.05
+    target_px = max(1.0, total_eligible_px * slice_pct)
 
     is_aggressive = vibrancy_mode == 'aggressive'
+    accum_px = 0.0
     sum_l = sum_a = sum_b = 0.0
-    for i in range(sample):
-        p = scored[i][1]
-        sum_l += p['L']
+    
+    for _, p in scored:
+        cnt = float(p.get('count', 1))
+        # How many pixels from this bucket can we fit in our top-X% sample?
+        take = min(cnt, target_px - accum_px)
+        if take <= 0:
+            break
+            
+        sum_l += p['L'] * take
         raw_a = p['a']
         # Boost pink-zone a* (0 < a < 50) toward red
-        sum_a += raw_a * 1.6 if (is_aggressive and 0 < raw_a < 50) else raw_a
-        sum_b += p['b']
+        sum_a += (raw_a * 1.6 if (is_aggressive and 0 < raw_a < 50) else raw_a) * take
+        sum_b += p['b'] * take
+        accum_px += take
 
-    result = {'L': sum_l / sample, 'a': sum_a / sample, 'b': sum_b / sample}
+    if accum_px < 0.0001:
+        return {'L': 50, 'a': 0, 'b': 0}
+        
+    result = {'L': sum_l / accum_px, 'a': sum_a / accum_px, 'b': sum_b / accum_px}
 
     # Neutrality gate: snap very low chroma to perfect neutral
     neutrality_thr = 0.0 if is_16bit else 5.0

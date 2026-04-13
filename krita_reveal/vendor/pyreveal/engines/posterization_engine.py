@@ -778,5 +778,5 @@ def posterize(pixels, width: int, height: int, target_colors: int, options: dict
     if engine_type == 'distilled':
         return _posterize_distilled(pixels, width, height, target_colors, merged)
 
-    # Unknown engine — fall back to reveal
-    return _posterize_reveal_mk1_0(pixels, width, height, target_colors, merged)
+    # Unknown engine
+    raise ValueError(f"Unknown engine type: {engine_type}")
