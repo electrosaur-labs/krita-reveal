@@ -223,6 +223,7 @@ class ParameterGenerator:
             'hue_lock_angle':       config.get('hue_lock_angle'),
             'shadow_point':         config.get('shadow_point'),
             'color_mode':           config.get('color_mode', 'color'),
+            'grayscale_only':       (config.get('color_mode') == 'bw' or config.get('color_mode') == 'grayscale'),
             'preserve_white':       config.get('preserve_white'),
             'preserve_black':       config.get('preserve_black'),
             'ignore_transparent':   config.get('ignore_transparent'),

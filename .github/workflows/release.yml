@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Package
+        run: |
+          TAG_NAME=${GITHUB_REF_NAME}
+          ZIP_NAME="krita-reveal-${TAG_NAME}.zip"
+          # Zip the plugin folder and the desktop registration file
+          zip -r "$ZIP_NAME" krita_reveal/ krita_reveal.desktop README.md
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

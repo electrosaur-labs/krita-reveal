@@ -1419,7 +1419,7 @@ class RevealDock(DockWidget):
         def group_label(text):
             lbl = QLabel(text)
             lbl.setStyleSheet(
-                'color: #999; font-size: 10px; text-transform: uppercase; '
+                'color: #aaa; font-weight: bold; font-size: 12px; text-transform: uppercase; '
                 'letter-spacing: 0.6px; margin-top: 10px; padding-top: 6px; '
                 'border-top: 1px solid #333;'
             )
@@ -1431,6 +1431,20 @@ class RevealDock(DockWidget):
                'Target number of output colors — the engine may produce a few more or fewer.')
         check('preserve_white', 'Preserve White', True)
         check('preserve_black', 'Preserve Black', True)
+
+        # Substrate (moved from Advanced)
+        group_label('Substrate')
+        combo('substrate_mode', 'Substrate',
+              [('none', 'None'), ('auto', 'Auto'), ('force', 'White'),
+               ('dark', 'Dark'), ('black', 'Black'), ('transparent', 'Transparent')],
+              'none')
+
+        # Optimization (moved from Advanced)
+        group_label('Optimization')
+        check('enable_palette_reduction', 'Auto Merge', True)
+
+        # Primary continued
+        group_label('Separation')
         slider('density', 'Minimum Coverage', 0, 5, 0.5, 0.1,
                lambda v: f'{v:.1f}%',
                'Colors covering less than this percentage of the image get merged into their nearest neighbor.')
@@ -1550,7 +1564,6 @@ class RevealDock(DockWidget):
         group_label('Color Merging')
         slider('palette_reduction', 'Merge Distance', 2, 14, 6.0, 0.5,
                lambda v: f'{v:.1f}')
-        check('enable_palette_reduction', 'Auto Merge', True)
         check('enable_hue_gap', 'Hue Recovery', True)
         slider('hue_lock_angle', 'Hue Lock', 10, 60, 20, 5,
                lambda v: f'{int(v)}°')
@@ -1573,12 +1586,8 @@ class RevealDock(DockWidget):
         slider('shadow_point', 'Shadow Point', 0, 30, 15, 1,
                lambda v: str(int(v)))
 
-        # Surface
-        group_label('Surface')
-        combo('substrate_mode', 'Substrate',
-              [('none', 'None'), ('auto', 'Auto'), ('force', 'White'),
-               ('dark', 'Dark'), ('black', 'Black'), ('transparent', 'Transparent')],
-              'none')
+        # Substrate
+        group_label('Substrate')
         slider('substrate_tolerance', 'Substrate Tolerance', 0, 5, 2.0, 0.5,
                lambda v: f'{v:.1f}',
                'How close a pixel must be to the substrate color before it is treated as background.')

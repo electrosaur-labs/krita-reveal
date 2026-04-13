@@ -471,12 +471,26 @@ def _posterize_reveal_mk1_0(pixels, width: int, height: int, target_colors: int,
     substrate_colors = []
     if substrate_lab and 6.0 <= substrate_lab['L'] <= 98.0:
         DUPE_THRESHOLD = 3.0
-        is_dup = any(
-            math.sqrt((substrate_lab['L'] - p['L']) ** 2 + (substrate_lab['a'] - p['a']) ** 2 + (substrate_lab['b'] - p['b']) ** 2) < DUPE_THRESHOLD
-            for p in preserved_colors
-        )
+
+        # Duplicate check must respect grayscale_only
+        is_dup = False
+        for p in preserved_colors:
+            dL = substrate_lab['L'] - p['L']
+            dA = 0 if grayscale_only else (substrate_lab['a'] - p['a'])
+            dB = 0 if grayscale_only else (substrate_lab['b'] - p['b'])
+            deltaE = math.sqrt(dL*dL + dA*dA + dB*dB)
+            if deltaE < DUPE_THRESHOLD:
+                is_dup = True
+                break
+
         if not is_dup:
-            substrate_colors.append(substrate_lab)
+            final_substrate = {
+                'L': substrate_lab['L'],
+                'a': 0.0 if grayscale_only else substrate_lab['a'],
+                'b': 0.0 if grayscale_only else substrate_lab['b']
+            }
+            substrate_colors.append(final_substrate)
+
 
     # ── Final palette assembly ────────────────────────────────────────────
     final_palette_lab = curated + preserved_colors + substrate_colors
