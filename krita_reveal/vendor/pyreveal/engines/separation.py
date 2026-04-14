@@ -167,7 +167,10 @@ class SeparationEngine:
             da = pa - pal_a  # (C, K)
             db = pb - pal_b  # (C, K)
 
-            if is_cie94:
+            if dist_cfg.get('is_grayscale'):
+                # Strict 1D luminance distance
+                dist_sq = dL * dL
+            elif is_cie94:
                 a_off_p = pa - LAB16_AB_NEUTRAL         # (C, 1)
                 b_off_p = pb - LAB16_AB_NEUTRAL         # (C, 1)
                 C_test  = np.sqrt(a_off_p * a_off_p + b_off_p * b_off_p)  # (C, 1)
@@ -244,7 +247,10 @@ class SeparationEngine:
             pB = raw_bytes[pidx + 2]
 
             # Spatial locality: check previous winner first
-            if is_cie2000:
+            if dist_cfg.get('is_grayscale'):
+                min_d = (pL - pal_L16[last_best]) ** 2
+                snap_thr = 0  # ensure bit-perfect tonal mapping
+            elif is_cie2000:
                 Lp = (pL / LAB16_L_MAX) * 100
                 ap = (pA - LAB16_AB_NEUTRAL) / AB_SCALE
                 bp = (pB - LAB16_AB_NEUTRAL) / AB_SCALE
@@ -257,7 +263,9 @@ class SeparationEngine:
             if min_d > snap_thr:
                 nearest = last_best
                 for c in range(palette_size):
-                    if is_cie2000:
+                    if dist_cfg.get('is_grayscale'):
+                        d = (pL - pal_L16[c]) ** 2
+                    elif is_cie2000:
                         d = cie2000_squared_inline(Lp, ap, bp, pal_Lp[c], pal_ap[c], pal_bp[c])
                     elif is_cie94:
                         d = cie94_squared_inline16(pL, pA, pB, pal_L16[c], pal_a16[c], pal_b16[c], pal_chroma16[c], k1_16, k2_16)
@@ -267,7 +275,7 @@ class SeparationEngine:
                     if d < min_d:
                         min_d = d
                         nearest = c
-                        if d < snap_thr:
+                        if d <= snap_thr:
                             break
                 last_best = nearest
 

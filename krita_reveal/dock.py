@@ -1151,6 +1151,59 @@ class RevealDock(DockWidget):
         root.setPalette(pal)
         root.setAutoFillBackground(True)
 
+        # Global high-fidelity stylesheet
+        root.setStyleSheet("""
+            QWidget { background: #323232; color: #e0e0e0; font-family: sans-serif; }
+            QLabel { background: transparent; }
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical {
+                background: #2a2a2a; width: 10px; margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #444; min-height: 20px; border-radius: 5px; margin: 2px;
+            }
+            QScrollBar::handle:vertical:hover { background: #555; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            
+            QSlider::groove:horizontal {
+                border: 1px solid #444; height: 4px; background: #222; margin: 2px 0; border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                background: #4da6ff; border: 1px solid #3070a0; width: 12px; height: 12px;
+                margin: -5px 0; border-radius: 6px;
+            }
+            QSlider::handle:horizontal:hover { background: #60b0ff; border-color: #4da6ff; }
+            
+            QComboBox {
+                background: #2a2a2a; border: 1px solid #444; color: #ccc;
+                font-size: 11px; padding: 3px 6px; border-radius: 3px;
+            }
+            QComboBox:hover { border-color: #555; color: #fff; }
+            QComboBox::drop-down { border: none; width: 16px; }
+            QComboBox::down-arrow { image: none; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #888; margin-right: 4px; }
+            
+            QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #666; border-radius: 2px; background: #2a2a2a; }
+            QCheckBox::indicator:checked { background: #4da6ff; border-color: #60b0e0; }
+            
+            QPushButton#headerAction {
+                background: #1a2a3a; border: 1px solid #3070a0; color: #60b0ff;
+                border-radius: 3px; font-size: 11px; font-weight: 600; padding: 10px 12px;
+            }
+            QPushButton#headerAction:hover { background: #203848; border-color: #4090c0; }
+            
+            QPushButton#headerReset {
+                background: #3a3020; border: 1px solid #7a6530; color: #e0a030;
+                border-radius: 3px; font-size: 11px; font-weight: 600; padding: 10px 12px;
+            }
+            QPushButton#headerReset:hover { background: #4a3a28; border-color: #a08040; }
+            
+            QPushButton#headerSeparate {
+                background: #1a3a2a; border: 1px solid #307050; color: #60c090;
+                border-radius: 3px; font-size: 11px; font-weight: 600; padding: 10px 12px;
+            }
+            QPushButton#headerSeparate:hover { background: #204838; border-color: #409060; }
+        """)
+
         self.setWidget(root)
 
         main_layout = QHBoxLayout(root)
@@ -1169,25 +1222,27 @@ class RevealDock(DockWidget):
 
         combo_style = (
             'QComboBox { background: #2a2a2a; border: 1px solid #444; color: #ccc; '
-            'font-size: 9px; padding: 1px 4px; border-radius: 2px; }'
+            'font-size: 11px; padding: 3px 6px; border-radius: 3px; }'
         )
-        label_style = 'color: #888; font-size: 9px;'
+        label_style = 'color: #888; font-size: 11px;'
 
-        preview_ctrl_row.addStretch()
-
+        # Resolution (Left Justified)
         res_label = QLabel('Resolution')
         res_label.setStyleSheet(label_style)
         preview_ctrl_row.addWidget(res_label)
         self._proxy_combo = QComboBox()
         self._proxy_combo.setStyleSheet(combo_style)
         self._proxy_combo.blockSignals(True)
-        for val, text in [('1000', '1000'), ('1500', '1500'), ('2000', '2000')]:
+        for val, text in [('800', '800'), ('1200', '1200'), ('1600', '1600'), ('2000', '2000')]:
             self._proxy_combo.addItem(text, val)
-        self._proxy_combo.setCurrentIndex(0)  # 1000 default
+        self._proxy_combo.setCurrentIndex(0)  # 800 default
         self._proxy_combo.blockSignals(False)
         self._proxy_combo.currentIndexChanged.connect(self._on_separate)
         preview_ctrl_row.addWidget(self._proxy_combo)
 
+        preview_ctrl_row.addStretch()
+
+        # Loupe (Right Justified)
         loupe_label = QLabel('Loupe')
         loupe_label.setStyleSheet(label_style)
         preview_ctrl_row.addWidget(loupe_label)
@@ -1208,14 +1263,14 @@ class RevealDock(DockWidget):
         self._status_bar.setStyleSheet('color: #bbb; font-size: 11px;')
         left_layout.addWidget(self._status_bar)
 
-        # Palette surgeon
+        # Palette surgeon grid
         self._surgeon_widget = QWidget()
         self._surgeon_widget.setStyleSheet(
             'background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 3px;'
         )
         self._surgeon_layout = QHBoxLayout(self._surgeon_widget)
-        self._surgeon_layout.setContentsMargins(4, 4, 4, 4)
-        self._surgeon_layout.setSpacing(2)
+        self._surgeon_layout.setContentsMargins(6, 6, 6, 6)
+        self._surgeon_layout.setSpacing(4)
         self._surgeon_widget.setVisible(False)
         left_layout.addWidget(self._surgeon_widget)
 
@@ -1247,92 +1302,75 @@ class RevealDock(DockWidget):
 
         main_layout.addWidget(left, 1)
 
-        # ── Right panel: controls (224px, matches HTML UI) ──
+        # ── Right panel: controls (300px, matches HTML UI with breathing room) ──
         right = QWidget()
         right.setObjectName('rightPanel')
-        right.setFixedWidth(224)
+        right.setFixedWidth(300)
         right.setStyleSheet('#rightPanel { border-left: 1px solid #3a3a3a; }')
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
 
-        # Reread Document + Reset to Defaults
+        # Reread Document + Reset to Defaults + Separate
         btn_col = QVBoxLayout()
         btn_col.setContentsMargins(7, 5, 7, 4)
         btn_col.setSpacing(4)
 
         reread_btn = QPushButton('Reread Document')
+        reread_btn.setObjectName('headerAction')
         reread_btn.setToolTip('Re-read pixels from the active document and re-separate')
-        reread_btn.setStyleSheet(
-            'QPushButton { background: #1a2a3a; border: 1px solid #3070a0; '
-            'color: #60b0ff; border-radius: 3px; font-size: 11px; font-weight: 600; '
-            'padding: 6px 8px; }'
-            'QPushButton:hover { background: #203848; border-color: #4090c0; }'
-        )
         reread_btn.clicked.connect(self._on_reread)
         btn_col.addWidget(reread_btn)
 
         reset_btn = QPushButton('Reset to Defaults')
+        reset_btn.setObjectName('headerReset')
         reset_btn.setToolTip('Reset all knobs and palette edits to archetype defaults')
-        reset_btn.setStyleSheet(
-            'QPushButton { background: #3a3020; border: 1px solid #7a6530; '
-            'color: #e0a030; border-radius: 3px; font-size: 11px; font-weight: 600; '
-            'padding: 6px 8px; }'
-            'QPushButton:hover { background: #4a3a28; border-color: #a08040; }'
-        )
         reset_btn.clicked.connect(self._reset_all)
         btn_col.addWidget(reset_btn)
 
+        self._btn_separate = QPushButton('Separate')
+        self._btn_separate.setObjectName('headerSeparate')
+        self._btn_separate.setToolTip('Commit current separation to the document (creates layers)')
+        self._btn_separate.setVisible(True) # Always visible
+        self._btn_separate.clicked.connect(self._on_build_layers)
+        btn_col.addWidget(self._btn_separate)
+
         right_layout.addLayout(btn_col)
 
-        # Header: Controls | ?
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(7, 4, 7, 4)
+        # ── Doc Header (High-Signal Status) ──
+        self._doc_header = QWidget()
+        self._doc_header.setFixedHeight(32)
+        self._doc_header.setStyleSheet('background: #323232; border-bottom: 1px solid #444;')
+        header_layout = QHBoxLayout(self._doc_header)
+        header_layout.setContentsMargins(8, 0, 8, 0)
+        header_layout.setSpacing(6)
 
-        header_label = QLabel('Basic')
-        header_label.setStyleSheet('color: #e0e0e0; font-size: 14px; font-weight: 600; letter-spacing: 0.5px;')
-        header_layout.addWidget(header_label)
-        header_layout.addStretch()
+        # Left: "Basic" or Archetype Name
+        self._header_arch = QLabel('BASIC')
+        self._header_arch.setStyleSheet('color: #e0e0e0; font-size: 14px; font-weight: 700; letter-spacing: 0.5px;')
+        header_layout.addWidget(self._header_arch)
 
-        help_btn = QPushButton('?')
-        help_btn.setFixedSize(20, 18)
-        help_btn.setStyleSheet(
-            'QPushButton { background: none; border: 1px solid #444; color: #777; '
-            'font-size: 9px; border-radius: 3px; }'
+        # Center: Stats (Score, Colors, Time)
+        self._header_stats = QLabel('')
+        self._header_stats.setStyleSheet('font-size: 11px;')
+        header_layout.addWidget(self._header_stats, 1)
+
+        # Right: Help button (?)
+        self._btn_help_toggle = QPushButton('?')
+        self._btn_help_toggle.setFixedSize(20, 18)
+        self._btn_help_toggle.setCheckable(True)
+        self._btn_help_toggle.setStyleSheet(
+            'QPushButton { background: none; border: solid 1px #444; color: #777; '
+            'font-size: 9px; border-radius: 3px; font-weight: 700; }'
             'QPushButton:hover { color: #bbb; border-color: #666; }'
+            'QPushButton:checked { color: #4da6ff; border-color: #3070a0; background: #1a2a3a; }'
         )
-        help_btn.clicked.connect(self._toggle_help)
-        header_layout.addWidget(help_btn)
+        self._btn_help_toggle.clicked.connect(self._toggle_help)
+        header_layout.addWidget(self._btn_help_toggle)
 
-        right_layout.addLayout(header_layout)
-
-        # Separator
-        sep1 = QFrame()
-        sep1.setFrameShape(QFrame.HLine)
-        sep1.setStyleSheet('color: #333;')
-        sep1.setFixedHeight(1)
-        right_layout.addWidget(sep1)
-
-        # Archetype selector
-        arch_layout = QVBoxLayout()
-        arch_layout.setContentsMargins(7, 4, 7, 4)
-        arch_layout.setSpacing(2)
-
-        arch_label = QLabel('Archetype')
-        arch_label.setStyleSheet(
-            'color: #e0e0e0; font-size: 11px; letter-spacing: 0.6px;'
-        )
-        arch_layout.addWidget(arch_label)
-
-        self._archetype_combo = QComboBox()
-        self._archetype_combo.setStyleSheet(
-            'QComboBox { background: #252525; border: 1px solid #3a6a3a; color: #80c080; '
-            'font-size: 11px; padding: 2px 5px; border-radius: 3px; }'
-        )
-        self._archetype_combo.currentIndexChanged.connect(self._on_archetype_changed)
-        arch_layout.addWidget(self._archetype_combo)
-
-        right_layout.addLayout(arch_layout)
+        # Header: Archetype selector (moved below Doc Header)
+        # This area will now be empty as we move the dropdown into the scroll area
+        right_layout.addWidget(self._doc_header)
 
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.HLine)
@@ -1350,27 +1388,24 @@ class RevealDock(DockWidget):
         self._knobs_layout.setContentsMargins(8, 8, 8, 8)
         self._knobs_layout.setSpacing(4)
 
+        # Create the archetype selector here so it can be added to the layout later
+        self._archetype_combo = QComboBox()
+        self._archetype_combo.setStyleSheet(
+            'QComboBox { background: #252525; border: 1px solid #3a6a3a; color: #80c080; '
+            'font-size: 11px; padding: 2px 5px; border-radius: 3px; }'
+        )
+        self._archetype_combo.currentIndexChanged.connect(self._on_archetype_changed)
+
         self._build_controls()
 
         self._knobs_layout.addStretch()
         scroll.setWidget(knobs_widget)
         right_layout.addWidget(scroll, 1)
 
-        # Footer: buttons + status
+        # Footer: status only
         footer_layout = QVBoxLayout()
         footer_layout.setContentsMargins(7, 6, 7, 6)
         footer_layout.setSpacing(5)
-
-        self._btn_build = QPushButton('Build Layers')
-        self._btn_build.setStyleSheet(
-            'QPushButton { background: #1a3a2a; border: 1px solid #307050; '
-            'color: #60c090; border-radius: 3px; font-size: 11px; font-weight: 600; '
-            'padding: 6px 8px; }'
-            'QPushButton:hover { background: #204838; border-color: #409060; }'
-        )
-        self._btn_build.setVisible(False)
-        self._btn_build.clicked.connect(self._on_build_layers)
-        footer_layout.addWidget(self._btn_build)
 
         self._side_status = QLabel('')
         self._side_status.setWordWrap(True)
@@ -1425,25 +1460,25 @@ class RevealDock(DockWidget):
             )
             self._target.addWidget(lbl)
 
-        # ── Primary (always visible) ──
+        # ── Basic (always visible) ──
+        # Archetype dropdown is added to this layout in _build_ui before calling _build_controls
+        arch_lbl = QLabel('Archetype')
+        arch_lbl.setStyleSheet('color: #aaa; font-weight: bold; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;')
+        self._target.addWidget(arch_lbl)
+        self._target.addWidget(self._archetype_combo)
+
         slider('colors', 'Target Colors', 3, 12, 6, 1,
                lambda v: str(int(v)),
                'Target number of output colors — the engine may produce a few more or fewer.')
         check('preserve_white', 'Preserve White', True)
         check('preserve_black', 'Preserve Black', True)
 
-        # Substrate (moved from Advanced)
-        group_label('Substrate')
-        combo('substrate_mode', 'Substrate',
-              [('none', 'None'), ('auto', 'Auto'), ('force', 'White'),
-               ('dark', 'Dark'), ('black', 'Black'), ('transparent', 'Transparent')],
-              'none')
+        # Dither does NOT auto-rerun (post-processing only, matches HTML UI)
+        combo('dither_type', 'Dither',
+              [('none', 'None'), ('floyd-steinberg', 'Floyd-Steinberg'),
+               ('bayer', 'Bayer'), ('atkinson', 'Atkinson'), ('stucki', 'Stucki')],
+              'none', rerun=False)
 
-        # Optimization (moved from Advanced)
-        group_label('Optimization')
-        check('enable_palette_reduction', 'Auto Merge', True)
-
-        # Primary continued
         group_label('Separation')
         slider('density', 'Minimum Coverage', 0, 5, 0.5, 0.1,
                lambda v: f'{v:.1f}%',
@@ -1454,12 +1489,6 @@ class RevealDock(DockWidget):
         slider('clamp', 'Minimum Opacity', 0, 40, 0, 0.5,
                lambda v: f'{int(v)}%',
                'Minimum mask density for each color. Faint areas below this threshold get boosted so they remain visible.')
-
-        # Dither does NOT auto-rerun (post-processing only, matches HTML UI)
-        combo('dither_type', 'Dither',
-              [('none', 'None'), ('floyd-steinberg', 'Floyd-Steinberg'),
-               ('bayer', 'Bayer'), ('atkinson', 'Atkinson'), ('stucki', 'Stucki')],
-              'none', rerun=False)
 
         # ── Screen Printing (collapsible) ──
         sp_header = QPushButton('▶ Screen Printing')
@@ -1487,13 +1516,13 @@ class RevealDock(DockWidget):
 
         self._target = sp_layout
 
-        slider('mesh_size', 'Mesh', 0, 400, 230, 10,
-               lambda v: f'{int(v)} TPI' if v > 0 else 'Off',
-               'Mesh density in threads per inch. Determines minimum reproducible detail size. 0 = disabled.')
+        combo('mesh_size', 'Mesh',
+              [(0, 'Off'), (110, '110 TPI'), (156, '156 TPI'), (196, '196 TPI'),
+               (230, '230 TPI'), (280, '280 TPI'), (305, '305 TPI'), (355, '355 TPI')],
+              230)
         slider('trap_size', 'Trap Width', 0, 10, 0, 1,
                lambda v: f'{int(v)} pt',
                'Expand lighter colors under darker neighbors to prevent gaps from misregistration. 0 = no trapping.')
-
         # Restore target to main knobs layout
         self._target = self._knobs_layout
 
@@ -1564,6 +1593,7 @@ class RevealDock(DockWidget):
         group_label('Color Merging')
         slider('palette_reduction', 'Merge Distance', 2, 14, 6.0, 0.5,
                lambda v: f'{v:.1f}')
+        check('enable_palette_reduction', 'Auto Merge', True)
         check('enable_hue_gap', 'Hue Recovery', True)
         slider('hue_lock_angle', 'Hue Lock', 10, 60, 20, 5,
                lambda v: f'{int(v)}°')
@@ -1588,6 +1618,10 @@ class RevealDock(DockWidget):
 
         # Substrate
         group_label('Substrate')
+        combo('substrate_mode', 'Substrate',
+              [('none', 'None'), ('auto', 'Auto'), ('force', 'White'),
+               ('dark', 'Dark'), ('black', 'Black'), ('transparent', 'Transparent')],
+              'none')
         slider('substrate_tolerance', 'Substrate Tolerance', 0, 5, 2.0, 0.5,
                lambda v: f'{v:.1f}',
                'How close a pixel must be to the substrate color before it is treated as background.')
@@ -1788,7 +1822,7 @@ class RevealDock(DockWidget):
         self._selected_idx = -1
         self._preview.clear_images()
         self._clear_swatches()
-        self._btn_build.setVisible(False)
+        # self._btn_separate.setVisible(False) # Always visible
         self._set_status('Reading pixels…')
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()  # ensure cursor updates before blocking read
@@ -1902,7 +1936,7 @@ class RevealDock(DockWidget):
         # DEBUG: verify dither_type propagation
         print(f"[Reveal] archetype={matched.get('name','?')} dither_type={matched.get('dither_type','MISSING')}")
 
-        self._btn_build.setVisible(True)
+        # self._btn_separate.setVisible(True) # Always visible
 
     def _on_worker_error(self, msg):
         QApplication.restoreOverrideCursor()
@@ -2253,8 +2287,11 @@ class RevealDock(DockWidget):
             sw.merged.connect(self._on_swatch_merged)
             if i == self._selected_idx:
                 sw.set_selected(True)
+            
             self._surgeon_layout.addWidget(sw)
             self._swatch_widgets.append(sw)
+        
+        # Add "+" button at the end
         self._surgeon_layout.addWidget(self._add_color_btn)
         self._add_color_btn.setVisible(True)
         self._surgeon_layout.addStretch()
@@ -2388,13 +2425,13 @@ class RevealDock(DockWidget):
             QApplication.restoreOverrideCursor()
             self._set_status('Ready')
 
-        # Auto-separate when user opens dock after startup.
-        # _startup is True for the first 5s after __init__ to skip
-        # Krita's initial showEvent during app launch.
-        if not self._startup and not self._has_result and not self._is_running:
+        # Auto-separate when user opens dock. 
+        # Skip only if we already have a result or are currently running.
+        if not self._has_result and not self._is_running:
             app = Krita.instance()
             doc = app.activeDocument() if app else None
             if doc and doc.colorModel() == 'LABA':
+                # Small delay to ensure Krita is stable
                 QTimer.singleShot(200, self._on_separate)
 
     def canvasChanged(self, canvas):
@@ -2415,7 +2452,7 @@ class RevealDock(DockWidget):
         self._archetype_combo.blockSignals(True)
         self._archetype_combo.clear()
         self._archetype_combo.blockSignals(False)
-        self._btn_build.setVisible(False)
+        # self._btn_separate.setVisible(False) # Always visible
         self._set_status('Ready')
 
         # Do NOT auto-separate here — Krita fires canvasChanged on document

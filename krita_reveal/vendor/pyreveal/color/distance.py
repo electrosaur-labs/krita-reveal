@@ -370,6 +370,7 @@ def normalize_distance_config(options: dict | None = None) -> dict:
     if options is None:
         options = {}
     metric = options.get('distance_metric', DistanceMetric.CIE76)
+    color_mode = options.get('color_mode', 'color')
     cie94_params = {**DEFAULT_CIE94_PARAMS, **options.get('cie94_params', {})}
     return {
         'metric':     metric,
@@ -377,4 +378,5 @@ def normalize_distance_config(options: dict | None = None) -> dict:
         'is_cie76':   metric == DistanceMetric.CIE76,
         'is_cie94':   metric == DistanceMetric.CIE94,
         'is_cie2000': metric == DistanceMetric.CIE2000,
+        'is_grayscale': color_mode in ('bw', 'grayscale'),
     }
