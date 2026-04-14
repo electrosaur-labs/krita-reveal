@@ -498,9 +498,17 @@ class _LabPicker(QWidget):
         self._a = 0.0
         self._b = 0.0
         self._target_idx = -1
+        self._grayscale_only = False
 
-    def open_for(self, idx, hex_color, anchor_widget):
+    def open_for(self, idx, hex_color, anchor_widget, grayscale_only=False):
         self._target_idx = idx
+        self._grayscale_only = grayscale_only
+        self._ab_widget.setVisible(not grayscale_only)
+        if grayscale_only:
+            self.setFixedWidth(110)
+        else:
+            self.setFixedWidth(430)
+
         self._original_preview.setStyleSheet(
             f'background: {hex_color}; border: 1px solid #555; border-top: none; border-radius: 0 0 2px 2px;'
         )
@@ -508,6 +516,9 @@ class _LabPicker(QWidget):
         g = int(hex_color[3:5], 16)
         b = int(hex_color[5:7], 16)
         self._L, self._a, self._b = rgb_to_lab(r, g, b)
+        if grayscale_only:
+            self._a = self._b = 0.0
+        
         self._update_all()
 
         pos = anchor_widget.mapToGlobal(QPoint(0, anchor_widget.height() + 4))
@@ -518,6 +529,9 @@ class _LabPicker(QWidget):
         self.show()
 
     def _update_all(self, skip_hex=False):
+        if self._grayscale_only:
+            self._a = self._b = 0.0
+        
         self._ab_widget.set_lab(self._L, self._a, self._b)
         self._l_widget.set_lab(self._L, self._a, self._b)
         r, g, b = lab_to_rgb(self._L, self._a, self._b)
@@ -529,9 +543,10 @@ class _LabPicker(QWidget):
             self._hex_input.setText(hex_str)
 
     def _on_ab_changed(self, a, b):
-        self._a = a
-        self._b = b
-        self._update_all()
+        if not self._grayscale_only:
+            self._a = a
+            self._b = b
+            self._update_all()
 
     def _on_l_changed(self, L):
         self._L = L
@@ -547,6 +562,8 @@ class _LabPicker(QWidget):
                 g = int(v[3:5], 16)
                 b = int(v[5:7], 16)
                 self._L, self._a, self._b = rgb_to_lab(r, g, b)
+                if self._grayscale_only:
+                    self._a = self._b = 0.0
                 self._update_all(skip_hex=True)
             except ValueError:
                 pass
@@ -1923,7 +1940,18 @@ class RevealDock(DockWidget):
                 'reason': s.get('reason', ''),
                 'score': round(s.get('score', 0), 1),
             })
-        self._render_suggestions(suggestions)
+        
+        params = self._collect_params()
+        mode = params.get('color_mode', 'color')
+        if mode in ('bw', 'grayscale'):
+            self._render_suggestions([])
+            if mode == 'bw':
+                self._add_color_btn.setVisible(False)
+            else:
+                self._add_color_btn.setVisible(True)
+        else:
+            self._render_suggestions(suggestions)
+            self._add_color_btn.setVisible(True)
 
         # Archetypes
         fresh = result.get('_archetype_scores', [])
@@ -2027,13 +2055,19 @@ class RevealDock(DockWidget):
 
     def _on_swatch_clicked(self, idx, event):
         if event.modifiers() & (Qt.ControlModifier | Qt.MetaModifier):
+            # Mode-aware picker
+            params = self._collect_params()
+            mode = params.get('color_mode', 'color')
+            if mode == 'bw':
+                return # Disabled for B/W
+            
             # Ctrl+click (or Cmd+click on macOS): open color picker
             c = self._palette_data[idx]
             if c.get('is_deleted'):
                 return
             swatch = self._swatch_widgets[idx]
             self._color_picker._target_idx = idx
-            self._color_picker.open_for(idx, c['hex'], swatch)
+            self._color_picker.open_for(idx, c['hex'], swatch, grayscale_only=(mode == 'grayscale'))
             return
 
         if event.modifiers() & Qt.AltModifier:
@@ -2089,6 +2123,12 @@ class RevealDock(DockWidget):
         """Open color picker to add a new color to the palette."""
         if not self._result:
             return
+        
+        params = self._collect_params()
+        mode = params.get('color_mode', 'color')
+        if mode == 'bw':
+            return # Disabled
+            
         palette = self._result['palette']
         live_count = sum(1 for c in palette if not c.get('is_deleted'))
         if live_count >= 20:
@@ -2098,7 +2138,7 @@ class RevealDock(DockWidget):
         self._adding_color = True
         self._color_picker._target_idx = len(palette)
         # Start with neutral gray
-        self._color_picker.open_for(len(palette), '#808080', self._add_color_btn)
+        self._color_picker.open_for(len(palette), '#808080', self._add_color_btn, grayscale_only=(mode == 'grayscale'))
 
     def _on_new_color_added(self, r, g, b):
         """Handle color picked in add-new mode."""
