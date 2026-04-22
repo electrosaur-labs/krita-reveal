@@ -39,10 +39,8 @@ class StatsManager:
                     ms = s['score']
                     break
         
-        # In the engine/JS, Match score is actually 100 - total_score (where lower score is better)
-        # But for display, we want to show a percentage match.
-        # If score is very low (e.g. 10.5), match is high (e.g. 89.5%)
-        display_match = max(0.1, 100.0 - ms)
+        # ArchetypeMapper already returns 0-100 similarity (higher is better)
+        display_match = max(0.1, ms)
                     
         self.set_stat_rated(self.dock._stat_match, 'match', display_match, 'Match ', '%')
         self.dock._stat_match.setVisible(True)

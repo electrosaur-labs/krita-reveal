@@ -3,7 +3,6 @@ widgets.py — Generic reusable UI controls for Krita Reveal.
 """
 
 from __future__ import annotations
-import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame,
     QSizePolicy, QSlider, QComboBox, QCheckBox, QLineEdit, QApplication,

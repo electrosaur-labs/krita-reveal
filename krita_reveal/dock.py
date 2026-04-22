@@ -3,7 +3,6 @@ dock.py — RevealDock: native PyQt5 docker for Reveal colour separation.
 """
 
 from __future__ import annotations
-import time
 from krita import DockWidget, Krita
 
 from PyQt5.QtWidgets import (
