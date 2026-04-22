@@ -139,6 +139,43 @@ class LayoutManager:
         self.dock._status_bar.setStyleSheet('color: #bbb; font-size: 11px;')
         llay.addWidget(self.dock._status_bar)
 
+        def make_help(title, help_text):
+            container = QWidget()
+            vlay = QVBoxLayout(container)
+            vlay.setContentsMargins(0, 0, 0, 0)
+            vlay.setSpacing(2)
+            
+            hrow = QHBoxLayout()
+            hrow.setContentsMargins(2, 0, 2, 0)
+            hrow.addWidget(QLabel(title, styleSheet='color: #aaa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold;'))
+            hrow.addStretch()
+            
+            btn = QPushButton('?')
+            btn.setFixedSize(16, 16)
+            btn.setStyleSheet('QPushButton { background: none; border: 1px solid #444; color: #777; font-size: 10px; border-radius: 2px; } QPushButton:hover { color: #fff; border-color: #666; } QPushButton.active { color: #4da6ff; border-color: #4da6ff; }')
+            hrow.addWidget(btn)
+            vlay.addLayout(hrow)
+            
+            htxt = QLabel(help_text)
+            htxt.setWordWrap(True)
+            htxt.setStyleSheet('color: #1a1a1a; background: #fff3b0; border: 1px solid #e0c860; border-radius: 4px; padding: 6px 8px; font-size: 11px; margin: 4px 0;')
+            htxt.setVisible(False)
+            vlay.addWidget(htxt)
+            
+            btn.clicked.connect(lambda: (
+                htxt.setVisible(not htxt.isVisible()),
+                btn.setProperty('class', 'active' if htxt.isVisible() else ''),
+                btn.style().unpolish(btn), btn.style().polish(btn)
+            ))
+            return container, vlay
+
+        # 1. Palette Surgeon
+        pal_box, pal_vlay = make_help('Palette', 
+            'Your extracted color palette. Click a swatch to isolate that color in the preview. '
+            'Ctrl+click opens the color picker for manual editing. Alt+click deletes a color '
+            'and redistributes its pixels to the nearest neighbor.')
+        llay.addWidget(pal_box)
+
         self.dock._surgeon_widget = QWidget()
         self.dock._surgeon_widget.setStyleSheet('background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 3px;')
         self.dock._surgeon_layout = QHBoxLayout(self.dock._surgeon_widget)
@@ -157,15 +194,19 @@ class LayoutManager:
         self.dock._add_color_btn.setVisible(False)
         self.dock._add_color_btn.clicked.connect(self.dock._on_add_color)
 
-        self.dock._suggested_widget = QWidget()
+        # 2. Suggested Colors
+        sug_box, sug_vlay = make_help('Suggested', 
+            'Minority hues missing from the current palette. Click a swatch to see how '
+            'injecting that color would affect the separation (What-if mode). '
+            'Double-click to permanently add the color to your palette.')
+        self.dock._suggested_widget = sug_box
         self.dock._suggested_widget.setVisible(False)
-        slay = QVBoxLayout(self.dock._suggested_widget)
-        slay.setContentsMargins(0, 4, 0, 0)
-        slay.addWidget(QLabel('SUGGESTED', styleSheet='color: #aaa; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;'))
+        
         self.dock._suggested_grid = QHBoxLayout()
         self.dock._suggested_grid.setSpacing(4)
-        slay.addLayout(self.dock._suggested_grid)
+        sug_vlay.addLayout(self.dock._suggested_grid)
         llay.addWidget(self.dock._suggested_widget)
+        
         parent_layout.addWidget(left, 1)
 
     def build_right_column(self, parent_layout):
@@ -272,8 +313,4 @@ class LayoutManager:
         self.dock._scroll_layout.addStretch()
         self.dock._main_scroll.setWidget(scrw)
         rlay.addWidget(self.dock._main_scroll, 1)
-        self.dock._side_status = QLabel('')
-        self.dock._side_status.setWordWrap(True)
-        self.dock._side_status.setStyleSheet('color: #bbb; font-size: 11px; margin: 4px 7px;')
-        rlay.addWidget(self.dock._side_status)
         parent_layout.addWidget(right)

@@ -228,7 +228,6 @@ class RevealDock(DockWidget):
         )
         matched = res.get('_matched_archetype', {})
         self._stats_mgr.update_stats(res, matched, self._archetype_scores)
-        self._set_status(f"{res['metadata']['final_colors']} colours · {matched.get('name', 'Custom')} ({res['metadata']['duration']}s)")
         
         cov = res.get('_coverage', [])
         pdat = []
@@ -524,8 +523,6 @@ class RevealDock(DockWidget):
         c = '#cc4444' if error else '#bbb'
         self._status_bar.setStyleSheet(f'color: {c}; font-size: 11px;')
         self._status_bar.setText(msg)
-        self._side_status.setStyleSheet(f'color: {c}; font-size: 11px;')
-        self._side_status.setText(msg)
 
     def _check_numpy(self):
         if self._numpy_warned:

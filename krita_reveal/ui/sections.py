@@ -63,12 +63,12 @@ class SectionBuilder:
 
         self.sub('Substrate', t=bas, hr=False)
         combo_opts = [
-            ('auto', 'Auto'), 
-            ('white', 'White'), 
-            ('black', 'Black')
+            ('auto', 'Auto'),
+            ('white', 'White'),
+            ('black', 'Black'),
+            ('none', 'None')
         ]
-        self.combo('substrate_mode', 'Substrate', combo_opts, 'auto', t=bas, h='Select background surface color.')
-
+        self.combo('substrate_mode', 'Substrate', combo_opts, 'auto', t=bas, h='What you are printing on. Auto detects background from corners. White/Black set color explicitly. None treats background as a printable color.')
         self.sub('Refinement', t=bas)
         self.slider('density', 'Minimum Coverage', 0, 5, 0.5, 0.1, lambda v: f'{v:.1f}%', 'Colors covering less than this percentage get merged.', t=bas)
         self.slider('speckle', 'Despeckle', 0, 30, 0, 1, lambda v: f'{int(v)} px', 'Remove isolated pixel clusters.', t=bas)
