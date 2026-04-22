@@ -739,17 +739,6 @@ def posterize(pixels, width: int, height: int, target_colors: int, options: dict
         raise ValueError(f'posterize: target_colors must be 1-20 (got {target_colors})')
 
     engine_type = options.get('engine_type', 'reveal')
-    color_mode = options.get('color_mode', 'color')
-
-    # Force StencilEngine for strict B/W or Grayscale modes
-    if color_mode in ('bw', 'grayscale'):
-        from .stencil_engine import StencilEngine
-        return StencilEngine.posterize(pixels, width, height, target_colors, options)
-
-    if engine_type == 'stencil':
-        from .stencil_engine import StencilEngine
-        return StencilEngine.posterize(pixels, width, height, target_colors, options)
-
     snap_threshold = options.get('snap_threshold', 8.0)
     enable_hue_gap = options.get('enable_hue_gap_analysis', False)
 
