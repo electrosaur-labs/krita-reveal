@@ -3,40 +3,16 @@ widgets.py — Generic reusable UI controls for Krita Reveal.
 """
 
 from __future__ import annotations
+import os
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFrame,
     QSizePolicy, QSlider, QComboBox, QCheckBox, QLineEdit, QApplication,
 )
-from PyQt5.QtCore import QTimer, Qt, pyqtSignal as Signal, QPoint, QRect
-from PyQt5.QtGui import QImage, QPixmap, QColor, QPainter, QPen, QPalette, QPainterPath
-
-
-class _StatusOverlay(QWidget):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self._text = ""
-        from PyQt5.QtGui import QFont
-        self._font = QFont('sans-serif', 20)
-        self._font.setBold(True)
-        self._pen = QColor('#60b0ff')
-
-    def set_text(self, text):
-        self._text = text
-        self.setVisible(bool(text))
-        self.raise_()
-        self.update()
-
-    def paintEvent(self, e):
-        if not self._text:
-            return
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        p.fillRect(self.rect(), QColor(0, 0, 0, 180))
-        p.setFont(self._font)
-        p.setPen(self._pen)
-        p.drawText(self.rect(), Qt.AlignCenter, self._text)
+from PyQt5.QtCore import QTimer, Qt, pyqtSignal as Signal, QPoint, QRect, QRectF
+from PyQt5.QtGui import (
+    QImage, QPixmap, QColor, QPainter, QPen, QPalette, QPainterPath, 
+    QFont, QFontDatabase, QRadialGradient, QLinearGradient, QBrush
+)
 
 
 class _LoupeOverlay(QWidget):

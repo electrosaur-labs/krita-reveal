@@ -14,20 +14,27 @@ if os.path.isdir(_packages) and _packages not in sys.path:
     sys.path.insert(0, _packages)
 
 from krita import DockWidgetFactory, DockWidgetFactoryBase, Krita
-from .dock import RevealDock
-from .extension import RevealExtension
 
-# Register DockWidget (UI panel)
-Krita.instance().addDockWidgetFactory(
-    DockWidgetFactory(
-        'reveal_separation_v2',
-        DockWidgetFactoryBase.DockMinimized,
-        RevealDock,
+try:
+    from .dock import RevealDock
+    from .extension import RevealExtension
+
+    # Register DockWidget (UI panel)
+    Krita.instance().addDockWidgetFactory(
+        DockWidgetFactory(
+            'reveal_separation_v2',
+            DockWidgetFactoryBase.DockMinimized,
+            RevealDock,
+        )
     )
-)
 
-# Register Extension (Tools > Scripts entry)
-Krita.instance().addExtension(RevealExtension(Krita.instance()))
+    # Register Extension (Tools > Scripts entry)
+    Krita.instance().addExtension(RevealExtension(Krita.instance()))
+    print("[Reveal] Plugin registered successfully.")
+except Exception as e:
+    import traceback
+    print(f"[Reveal] FATAL ERROR during initialization: {e}")
+    traceback.print_exc()
 
 def setup():
     pass

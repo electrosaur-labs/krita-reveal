@@ -14,7 +14,6 @@ from PyQt5.QtCore import QTimer, Qt, QPoint, QRect
 from PyQt5.QtGui import QColor, QPalette, QPixmap
 
 from .constants import DEFAULTS, log
-from .ui.widgets import _StatusOverlay
 from .ui.preview import _PreviewLabel
 from .ui.palette import _LabPicker, PaletteManager
 from .ui.archetypes import ArchetypeManager
@@ -86,8 +85,6 @@ class RevealDock(DockWidget):
         
         log(f"RevealDock: Layouts after build: bas={getattr(self, '_basic_layout', None)}, sp={getattr(self, '_sp_layout', None)}, adv={getattr(self, '_advanced_layout', None)}")
 
-        self._overlay = _StatusOverlay(self._root_container)
-        self._overlay.setVisible(False)
         self._color_picker = _LabPicker()
         self._color_picker.colorPicked.connect(self._on_color_picked)
         
@@ -108,8 +105,6 @@ class RevealDock(DockWidget):
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
-        if self._ui_built:
-            self._overlay.resize(self._root_container.size())
 
     def _toggle_advanced(self):
         vis = not self._adv_container.isVisible()
@@ -138,9 +133,12 @@ class RevealDock(DockWidget):
         self._preview.clear_images()
         self._palette_mgr.clear_swatches()
         self._set_status('Applying archetype…')
+        self._preview.set_progress(10)
+        self._preview.add_step(f'Switching to {aid}')
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
         self._worker = _Worker(self._proxy_pixels, self._proxy_w, self._proxy_h, 0, {'_archetype_id': aid})
+        self._worker.status.connect(lambda msg, pct: (self._preview.add_step(msg), self._preview.set_progress(pct)))
         self._worker.done.connect(self._on_worker_done)
         self._worker.error.connect(self._on_worker_error)
         self._worker.start()
@@ -148,6 +146,7 @@ class RevealDock(DockWidget):
     def _on_separate(self):
         if self._is_running:
             return
+        
         if self._rerun_timer.isActive():
             self._rerun_timer.stop()
         self._check_numpy()
@@ -162,15 +161,20 @@ class RevealDock(DockWidget):
         self._has_result = False
         self._selected_idx = -1
         self._preview.clear_images()
+        self._preview.add_step('Initializing engine')
+        self._preview.set_progress(0)
         self._palette_mgr.clear_swatches()
         self._btn_separate.setEnabled(False)
         self._set_status('Reading pixels…')
+        self._preview.set_progress(10)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
         params = self._params_mgr.collect_params()
         try:
             from .pipeline import read_document_raw, downsample_pixels_smooth
             raw, w, h = read_document_raw(doc)
+            self._preview.add_step('Downsampling')
+            self._preview.set_progress(20)
             pixels, dw, dh = downsample_pixels_smooth(raw, w, h, max_dim=int(params.get('proxy_resolution', 1000)))
             self._proxy_w = dw
             self._proxy_h = dh
@@ -178,8 +182,10 @@ class RevealDock(DockWidget):
             self._doc_h = h
             self._proxy_pixels = pixels
             self._set_status(f'Separating {dw}×{dh}…')
+            self._preview.set_progress(40)
             opts = self._params_mgr.get_worker_options(params)
             self._worker = _Worker(pixels, dw, dh, 0, opts)
+            self._worker.status.connect(lambda msg, pct: (self._preview.add_step(msg), self._preview.set_progress(pct)))
             self._worker.done.connect(self._on_worker_done)
             self._worker.error.connect(self._on_worker_error)
             self._worker.start()
@@ -190,9 +196,13 @@ class RevealDock(DockWidget):
             self._set_status(f'Read error: {e}', error=True)
 
     def _on_worker_done(self, res):
-        self._overlay.set_text("")
+        self._preview.add_step('Post-processing')
+        self._preview.set_progress(80)
         try:
             self._handle_worker_result(res)
+            self._preview.finish_steps()
+            # Brief pause to show 100%
+            QTimer.singleShot(400, self._preview.clear_steps)
         except Exception as e:
             log(f"_handle_worker_result ERROR: {e}")
             self._is_running = False
@@ -203,7 +213,6 @@ class RevealDock(DockWidget):
 
     def _handle_worker_result(self, res):
         QApplication.restoreOverrideCursor()
-        self._preview.set_overlay_text('')
         res.update({
             '_proxy_w': self._proxy_w,
             '_proxy_h': self._proxy_h,
@@ -262,7 +271,7 @@ class RevealDock(DockWidget):
             QApplication.restoreOverrideCursor()
         self._is_running = False
         self._has_result = False
-        self._overlay.set_text("")
+        self._preview.clear_steps()
         self._btn_separate.setEnabled(False)
         self._set_status(f'Error: {msg}', error=True)
 
@@ -278,10 +287,13 @@ class RevealDock(DockWidget):
         self._preview.clear_images()
         self._palette_mgr.clear_swatches()
         self._set_status('Applying changes…')
+        self._preview.add_step('Updating parameters')
+        self._preview.set_progress(10)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         params = self._params_mgr.collect_params()
         opts = self._params_mgr.get_worker_options(params)
         self._worker = _Worker(self._proxy_pixels, self._proxy_w, self._proxy_h, int(params['colors']), opts)
+        self._worker.status.connect(lambda msg, pct: (self._preview.add_step(msg), self._preview.set_progress(pct)))
         self._worker.done.connect(self._on_worker_done)
         self._worker.error.connect(self._on_worker_error)
         self._worker.start()
@@ -414,7 +426,6 @@ class RevealDock(DockWidget):
         for i, c in enumerate(r['palette']):
             if c.get('is_deleted') and live and plab:
                 target = min(live, key=lambda j: (plab[i]['L'] - plab[j]['L'])**2 + (plab[i]['a'] - plab[j]['a'])**2 + (plab[i]['b'] - plab[j]['b'])**2)
-                mcnts[target] += mcnts[i] # Incorrect logic in modular port? Fixed now
                 mcnts[target] += 1
                 
         pdat = []
@@ -437,6 +448,9 @@ class RevealDock(DockWidget):
             self._set_status('No document.', error=True)
             return
         self._is_running = True
+        self._preview.clear_steps()
+        self._preview.add_step('Preparing separation')
+        self._preview.set_progress(5)
         self._set_status('Building layers…')
         QApplication.setOverrideCursor(Qt.WaitCursor)
         QApplication.processEvents()
@@ -458,12 +472,14 @@ class RevealDock(DockWidget):
             
         from .layer_builder import build_separation_layers
         try:
-            on_prog = lambda m: (self._set_status(m), QApplication.processEvents())
+            on_prog = lambda m: (self._set_status(m), self._preview.add_step(m), QApplication.processEvents())
             n = build_separation_layers(doc, res, on_progress=on_prog)
             self._set_status(f'Created {n} layers.')
-            self.setVisible(False)
+            self._preview.finish_steps()
+            QTimer.singleShot(1000, self._preview.clear_steps)
         except Exception as e:
             self._set_status(f'Layer error: {e}', error=True)
+            self._preview.add_step(f'Error: {e}', status="ERR")
         finally:
             self._is_running = False
             if QApplication.overrideCursor():
@@ -510,11 +526,6 @@ class RevealDock(DockWidget):
         self._status_bar.setText(msg)
         self._side_status.setStyleSheet(f'color: {c}; font-size: 11px;')
         self._side_status.setText(msg)
-        self._preview.set_overlay_text(msg if self._is_running else '')
-        if self._is_running and msg:
-            self._overlay.set_text(msg)
-        else:
-            self._overlay.set_text("")
 
     def _check_numpy(self):
         if self._numpy_warned:

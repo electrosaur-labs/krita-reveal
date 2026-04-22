@@ -18,6 +18,8 @@ class LayoutManager:
         self.dock = dock
 
     def build_ui(self):
+        from ..constants import log
+        log("LayoutManager: Building UI with synchronized header styling.")
         root = QWidget(self.dock._root_container)
         self.setup_root_style(root)
         self.dock._main_layout.addWidget(root)
@@ -56,22 +58,32 @@ class LayoutManager:
         llay.setContentsMargins(8, 8, 8, 8)
         llay.setSpacing(6)
         
+        # --- HEADER ROW (FLAT & TIGHT) ---
         crow = QHBoxLayout()
-        crow.setSpacing(8)
-        self.dock._stat_archetype = QLabel('')
-        self.dock._stat_archetype.setStyleSheet('color: #e0e0e0; font-weight: 700; font-size: 16px;')
-        self.dock._stat_colors = QLabel('')
-        self.dock._stat_colors.setStyleSheet('color: #ccc; font-size: 14px;')
-        self.dock._stat_delta = QLabel('')
-        self.dock._stat_delta.setStyleSheet('color: #8bb8e8; font-weight: 600; font-size: 14px;')
-        self.dock._stat_dna = QLabel('')
-        self.dock._stat_dna.setStyleSheet('color: #ccc; font-size: 14px;')
-        self.dock._stat_match = QLabel('')
-        self.dock._stat_match.setStyleSheet('color: #ccc; font-size: 14px;')
+        crow.setContentsMargins(0, 0, 0, 0)
+        crow.setSpacing(6) # Match JS gap: 6px
+        
+        # 1. Stats (Left Sticky) - Exact JS CSS Mapping
+        def stat_lbl(css):
+            l = QLabel('')
+            l.setStyleSheet(css)
+            l.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+            l.setContentsMargins(0, 0, 0, 0)
+            return l
+
+        # .stat-archetype-label { font-size: 16px; font-weight: 700; color: #e0e0e0; }
+        self.dock._stat_archetype = stat_lbl('color: #e0e0e0; font-weight: 700; font-size: 16px;')
+        
+        # .stat-val { font-size: 14px; color: #ccc; }
+        self.dock._stat_colors = stat_lbl('color: #ccc; font-size: 14px;')
+        self.dock._stat_delta = stat_lbl('color: #8bb8e8; font-weight: 600; font-size: 14px;')
+        self.dock._stat_dna = stat_lbl('color: #ccc; font-size: 14px;')
+        self.dock._stat_match = stat_lbl('color: #e0c97f; font-weight: 600; font-size: 14px;')
 
         def dot():
             l = QLabel('·')
-            l.setStyleSheet('color: #555; font-size: 14px; margin: 0 3px;')
+            l.setStyleSheet('color: #555; font-size: 14px; font-weight: bold;')
+            l.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
             return l
 
         self.dock._sep_colors = dot()
@@ -79,38 +91,44 @@ class LayoutManager:
         self.dock._sep_dna = dot()
         self.dock._sep_match = dot()
         
-        stat_widgets = [
-            self.dock._stat_archetype, self.dock._sep_colors, self.dock._stat_colors, 
-            self.dock._sep_delta, self.dock._stat_delta, self.dock._sep_dna, 
-            self.dock._stat_dna, self.dock._sep_match, self.dock._stat_match
-        ]
-        for w in stat_widgets:
-            crow.addWidget(w)
+        # Add stats items to layout
+        for w in [self.dock._stat_archetype, self.dock._sep_colors, self.dock._stat_colors, 
+                  self.dock._sep_delta, self.dock._stat_delta, self.dock._sep_dna, 
+                  self.dock._stat_dna, self.dock._sep_match, self.dock._stat_match]:
+            crow.addWidget(w, 0, Qt.AlignLeft)
             w.setVisible(False)
+            
+        # PUSH EVERYTHING ELSE TO THE RIGHT
+        crow.addStretch(1) 
         
-        crow.addStretch()
-        cs = 'QComboBox { background: #2a2a2a; border: 1px solid #444; color: #ccc; font-size: 10px; padding: 1px 4px; border-radius: 2px; }'
+        # 2. Controls (Right Sticky)
+        cs = 'QComboBox { background: #383838; border: 1px solid #555; color: #aaa; font-size: 10px; padding: 1px 4px; border-radius: 3px; }'
         ls = 'color: #888; font-size: 10px;'
         
-        crow.addWidget(QLabel('Resolution', styleSheet=ls))
+        l_res = QLabel('Resolution', styleSheet=ls)
         self.dock._proxy_combo = QComboBox()
         self.dock._proxy_combo.setStyleSheet(cs)
         self.dock._proxy_combo.blockSignals(True)
-        for v, t in [('1000', '1000'), ('1500', '1500'), ('2000', '2000')]:
+        for v, t in [('1000', '1000px'), ('1500', '1500px'), ('2000', '2000px')]:
             self.dock._proxy_combo.addItem(t, v)
         self.dock._proxy_combo.setCurrentIndex(0)
         self.dock._proxy_combo.blockSignals(False)
         self.dock._proxy_combo.currentIndexChanged.connect(self.dock._on_separate)
-        crow.addWidget(self.dock._proxy_combo)
         
-        crow.addWidget(QLabel('Loupe', styleSheet=ls))
+        l_loupe = QLabel('Loupe', styleSheet=ls)
         self.dock._loupe_mag_combo = QComboBox()
         self.dock._loupe_mag_combo.setStyleSheet(cs)
         for v, t in [(0, 'None'), (1, '1:1'), (2, '1:2'), (4, '1:4'), (8, '1:8')]:
             self.dock._loupe_mag_combo.addItem(t, v)
         self.dock._loupe_mag_combo.setCurrentIndex(0)
         self.dock._loupe_mag_combo.currentIndexChanged.connect(self.dock._on_loupe_mag_changed)
-        crow.addWidget(self.dock._loupe_mag_combo)
+        
+        crow.addWidget(l_res, 0, Qt.AlignRight)
+        crow.addWidget(self.dock._proxy_combo, 0, Qt.AlignRight)
+        crow.addSpacing(6)
+        crow.addWidget(l_loupe, 0, Qt.AlignRight)
+        crow.addWidget(self.dock._loupe_mag_combo, 0, Qt.AlignRight)
+        
         llay.addLayout(crow)
 
         self.dock._preview = _PreviewLabel()

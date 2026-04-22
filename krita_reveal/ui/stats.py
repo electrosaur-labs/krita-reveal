@@ -11,29 +11,40 @@ class StatsManager:
         self.dock = dock
 
     def update_stats(self, res, matched, archetype_scores):
+        from ..constants import log
+        log(f"StatsManager: Updating stats for {matched.get('name', 'Custom')}")
+        # Match PS/JS labels: <ARCHETYPE> # colors \deltaE deltaE DNA dna Match match%
         self.dock._stat_archetype.setText(matched.get('name', 'Custom').upper())
         self.dock._stat_archetype.setVisible(True)
+        
         self.dock._stat_colors.setText(f"{res['metadata']['final_colors']} colors")
         self.dock._stat_colors.setVisible(True)
         self.dock._sep_colors.setVisible(True)
         
-        self.set_stat_rated(self.dock._stat_delta, 'deltaE', res.get('meanDeltaE', matched.get('meanDeltaE', 0)), 'ΔE ')
+        de = res.get('meanDeltaE') or matched.get('meanDeltaE') or 0
+        self.set_stat_rated(self.dock._stat_delta, 'deltaE', de, 'ΔE ')
         self.dock._stat_delta.setVisible(True)
         self.dock._sep_delta.setVisible(True)
         
-        self.set_stat_rated(self.dock._stat_dna, 'dna', res.get('dnaFidelity', {}).get('fidelity', 100), 'DNA ')
+        fidelity = res.get('dnaFidelity', {}).get('fidelity') or 100
+        self.set_stat_rated(self.dock._stat_dna, 'dna', fidelity, 'DNA ')
         self.dock._stat_dna.setVisible(True)
         self.dock._sep_dna.setVisible(True)
         
-        ms = 0
+        ms = 100.0
         if archetype_scores:
             aid = matched.get('id')
             for s in archetype_scores:
                 if s['id'] == aid:
                     ms = s['score']
                     break
+        
+        # In the engine/JS, Match score is actually 100 - total_score (where lower score is better)
+        # But for display, we want to show a percentage match.
+        # If score is very low (e.g. 10.5), match is high (e.g. 89.5%)
+        display_match = max(0.1, 100.0 - ms)
                     
-        self.set_stat_rated(self.dock._stat_match, 'match', ms, 'Match ', '%')
+        self.set_stat_rated(self.dock._stat_match, 'match', display_match, 'Match ', '%')
         self.dock._stat_match.setVisible(True)
         self.dock._sep_match.setVisible(True)
 

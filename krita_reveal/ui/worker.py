@@ -12,6 +12,7 @@ from ..suggested_color_analyzer import SuggestedColorAnalyzer
 class _Worker(QThread):
     done = Signal(dict)
     error = Signal(str)
+    status = Signal(str, int) # message, progress_pct
 
     def __init__(self, pixels, width, height, target_colors, options):
         super().__init__()
@@ -28,9 +29,13 @@ class _Worker(QThread):
             from ..constants import log
             log(f"Worker: Starting {self._width}x{self._height}...")
 
+            def _on_prog(msg, pct):
+                self.status.emit(msg, pct)
+
             orig_rgb = make_original_rgb(self._pixels, self._width, self._height)
-            result = run_separation(self._pixels, self._width, self._height, self._target_colors, self._options)
+            result = run_separation(self._pixels, self._width, self._height, self._target_colors, self._options, on_progress=_on_prog)
             result['_orig_rgb'] = orig_rgb
+            _on_prog("Generating Preview", 90)
             result['_post_rgb'] = make_posterized_rgb(result['assignments'], result['palette'], self._width, self._height)
 
             try:

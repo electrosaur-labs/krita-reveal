@@ -149,15 +149,19 @@ def _get_archetype_scores(config: dict) -> list:
             pscore = max(0.0, pscore - 1.0)
     return scores
 
-def run_separation(pixels, width: int, height: int, target_colors: int = 6, options: dict = None) -> dict:
+def run_separation(pixels, width: int, height: int, target_colors: int = 6, options: dict = None, on_progress=None) -> dict:
     import pyreveal
     from pyreveal.analysis.parameter_generator import ParameterGenerator
     opts = dict(options) if options else {}
     arch_id = opts.pop('_archetype_id', None)
     pre_intensity = opts.pop('_preprocessing_intensity', 'off')
+    
+    if on_progress: on_progress("Analyzing DNA", 10)
     dna = pyreveal.analyze_image(pixels, width, height, {'bit_depth': 16})
+    
     mechanical = {}
     if arch_id is not None:
+        if on_progress: on_progress("Matching Archetype", 30)
         manual_id = arch_id if arch_id != '__auto__' else None
         if manual_id in ('dynamic_interpolator', 'salamander'):
             from pyreveal.analysis.interpolator_engine import get_engine
@@ -182,15 +186,20 @@ def run_separation(pixels, width: int, height: int, target_colors: int = 6, opti
         params['target_colors'] = target_colors
         params['skip_assignment'] = True
     else:
+        if on_progress: on_progress("Auto-Quantizing", 30)
         params = {'substrate_mode': 'none', 'skip_assignment': True}; params.update(opts)
         config = pyreveal.generate_configuration(dna)
 
     if pre_intensity != 'off':
+        if on_progress: on_progress("Preprocessing", 45)
         from pyreveal.preprocessing.bilateral_filter import create_preprocessing_config
         pre_c = create_preprocessing_config(dna, pixels, width, height, intensity_override=pre_intensity)
         if pre_c.get('enabled'): pyreveal.preprocess_image(pixels, width, height, pre_c)
     
+    if on_progress: on_progress("Posterizing", 60)
     res = pyreveal.posterize_image(pixels, width, height, target_colors, params)
+    
+    if on_progress: on_progress("Mapping Pixels", 80)
     from pyreveal.engines.separation import SeparationEngine as SE
     res['assignments'] = SE.map_pixels_to_palette(pixels, res['palette_lab'], width, height, {'dither_type': params.get('dither_type', 'none'), 'distance_metric': params.get('distance_metric', 'cie76'), 'mesh_count': opts.get('mesh_size')})
     res['_matched_archetype'] = {
